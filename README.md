@@ -83,3 +83,8 @@ Have questions? Open an issue on GitHub or reach out to the team.
 ---
 
 **Made with ❤️ for mobile developers**
+
+## License
+
+MIT License — see [LICENSE](LICENSE) file.
+
