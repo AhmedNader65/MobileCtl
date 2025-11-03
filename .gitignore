@@ -1,0 +1,52 @@
+# Gradle
+.gradle/
+build/
+out/
+*.jar
+*.class
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+*.sw*
+*.bak
+
+# JVM
+*.jks
+*.keystore
+local.properties
+
+# OS
+.DS_Store
+Thumbs.db
+*.log
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+release/
+*.apk
+*.ipa
+*.aar
+
+# Temporary
+tmp/
+temp/
+*.tmp
+
+# Node (if using any JS tooling)
+node_modules/
+npm-debug.log
+
+# Dependencies
+.kotlin/
+
+# Native binaries
+native/build/
