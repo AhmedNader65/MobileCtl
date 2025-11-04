@@ -9,7 +9,11 @@ import kotlinx.serialization.Serializable
 data class AndroidBuildConfig(
     val enabled: Boolean = true,
     val projectPath: String = ".",
-    val gradleTask: String = "assembleRelease",
+    var defaultFlavor: String = "",
+    var defaultType: String = "release",
+    val gradleTask: String = "assemble${if (defaultFlavor.isNotEmpty()) defaultFlavor.capitalize() else ""}${
+        defaultType.capitalize()
+    }",
     val gradleProperties: Map<String, String> = emptyMap(),
     val keystore: KeystoreConfig? = null,
     val output: OutputConfig = OutputConfig()

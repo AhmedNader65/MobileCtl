@@ -1,6 +1,8 @@
 package com.mobilectl.builder
 
+import com.mobilectl.config.Config
 import com.mobilectl.model.Platform
+import com.mobilectl.model.buildConfig.BuildConfig
 import com.mobilectl.util.ProcessExecutor
 import com.mobilectl.util.createLogger
 import kotlinx.coroutines.Dispatchers
@@ -12,14 +14,14 @@ class JvmBuildManager(
     private val androidBuilder: AndroidBuilder,
     private val iosBuilder: IosBuilder
 ) : BuildManager {
-    override suspend fun build(platforms: Set<Platform>, baseDir: String): BuildResult = withContext(Dispatchers.Default) {
+    override suspend fun build(platforms: Set<Platform>,config: Config, baseDir: String): BuildResult = withContext(Dispatchers.Default) {
         val outputs = mutableListOf<BuildOutput>()
         val startTime = System.currentTimeMillis()
 
         for (platform in platforms) {
             val output = when (platform) {
-                Platform.ANDROID -> androidBuilder.build(baseDir)
-                Platform.IOS -> iosBuilder.build(baseDir)
+                Platform.ANDROID -> androidBuilder.build(baseDir, config)
+                Platform.IOS -> iosBuilder.build(baseDir, config)
             }
             outputs.add(output)
         }
@@ -37,11 +39,15 @@ class JvmBuildManager(
 class AndroidBuilder(
     private val processExecutor: ProcessExecutor
 ) : PlatformBuilder {
-    override suspend fun build(baseDir: String): BuildOutput {
+    override suspend fun build(baseDir: String, config: Config): BuildOutput {
         val startTime = System.currentTimeMillis()
 
         return try {
+            val buildFlavor = config.build.android.defaultFlavor
+            val buildType = config.build.android.defaultType
+
             logger.info("Building Android from: $baseDir")
+            logger.info("Flavor: $buildFlavor, Type: $buildType")
 
             // Find the correct gradlew executable
             val gradlewPath = findGradleWrapper(baseDir)
@@ -58,10 +64,16 @@ class AndroidBuilder(
 
             logger.info("Using gradlew at: $gradlewPath")
 
+            // Build variant name (e.g., stagingDebug, productionRelease)
+            val variantName = "${buildFlavor.lowercase()}${buildType.replaceFirstChar { it.uppercase() }}"
+            val gradleTask = "assemble${variantName.replaceFirstChar { it.uppercase() }}"
+
+            logger.info("Running gradle task: $gradleTask")
+
             // Execute gradlew from the base directory
             val result = processExecutor.execute(
                 command = gradlewPath,
-                args = listOf("assembleRelease"),
+                args = listOf(gradleTask),
                 workingDir = baseDir
             )
 
@@ -72,7 +84,7 @@ class AndroidBuilder(
                 BuildOutput(
                     success = true,
                     platform = Platform.ANDROID,
-                    outputPath = "$baseDir/build/outputs/apk/release/",
+                    outputPath = "$baseDir/build/outputs/apk/$buildFlavor/$buildType/",
                     durationMs = duration
                 )
             } else {
@@ -133,7 +145,7 @@ class AndroidBuilder(
 class IosBuilder(
     private val processExecutor: ProcessExecutor
 ) : PlatformBuilder {
-    override suspend fun build(baseDir: String): BuildOutput {  // ← RECEIVE baseDir
+    override suspend fun build(baseDir: String, config: Config): BuildOutput {  // ← RECEIVE baseDir
         val startTime = System.currentTimeMillis()
 
         return try {

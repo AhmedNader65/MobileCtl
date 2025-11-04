@@ -21,6 +21,8 @@ import java.nio.file.Paths
 
 class BuildCommand : CliktCommand(name = "build") {
     private val platform by argument(name = "platform").optional()
+    private val flavor by argument("flavor").optional()  // empty, staging, production, etc
+    private val type by argument("type").optional()      // debug, release
     private val verbose by option("--verbose", help = "Verbose output").flag()
     private val dryRun by option("--dry-run", help = "Show what would be done").flag()
     private val customDir by option(
@@ -80,6 +82,14 @@ class BuildCommand : CliktCommand(name = "build") {
                 else -> {
                     echo("❌ Unknown platform: $platform. Use 'android', 'ios', or 'all'")
                     return@runBlocking
+                }
+            }
+            config.apply {
+                if (flavor != null) {
+                    this.build.android.defaultFlavor = flavor.toString()
+                }
+                if (type != null) {
+                    this.build.android.defaultType = type.toString()
                 }
             }
             echo("Target platforms: $targetPlatforms")

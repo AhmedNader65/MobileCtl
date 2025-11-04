@@ -44,7 +44,8 @@ class ConfigParserTest {
             build:
               android:
                 enabled: true
-                gradle_task: "bundleRelease"
+                default_flavor: "production"
+                default_type: "release"
               ios:
                 enabled: true
                 scheme: "MyApp"
@@ -65,7 +66,7 @@ class ConfigParserTest {
         val parser = createConfigParser()
         val config = parser.parse(yaml)
 
-        assertEquals("bundleRelease", config.build.android.gradleTask)
+        assertEquals("assembleProductionRelease", config.build.android.gradleTask)
         assertEquals("MyApp", config.build.ios.scheme)
         assertEquals(2, config.deploy.destinations.size)
         assertTrue(config.notify.slack.enabled)

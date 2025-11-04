@@ -1,12 +1,16 @@
 package com.mobilectl.builder
 
+import com.mobilectl.config.Config
 import com.mobilectl.model.Platform
 
 /**
  * Interface for platform-specific builders
  */
 interface PlatformBuilder {
-    suspend fun build(baseDir: String): BuildOutput
+    suspend fun build(
+        baseDir: String,
+        config: Config
+    ): BuildOutput
 }
 
 data class BuildOutput(
@@ -26,7 +30,9 @@ data class BuildOutput(
 }
 
 interface BuildManager {
-    suspend fun build(platforms: Set<Platform>, baseDir: String): BuildResult
+    suspend fun build(platforms: Set<Platform>,
+                      config: Config,
+                      baseDir: String): BuildResult
 }
 
 data class BuildResult(

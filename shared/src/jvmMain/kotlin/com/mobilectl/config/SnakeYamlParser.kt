@@ -84,7 +84,8 @@ class SnakeYamlConfigParser : ConfigParser {
         return AndroidBuildConfig(
             enabled = data["enabled"] as? Boolean ?: true,
             projectPath = data["project_path"] as? String ?: ".",
-            gradleTask = data["gradle_task"] as? String ?: "assembleRelease",
+            defaultFlavor = data["default_flavor"] as? String ?: "",
+            defaultType = data["default_type"] as? String ?: "release",
             gradleProperties = (data["gradle_properties"] as? Map<*, *>)?.mapKeys { it.key.toString() }?.mapValues { it.value.toString() } ?: emptyMap(),
             keystore = convertToKeystoreConfig(data["keystore"] as? Map<String, Any?>),
             output = convertToOutputConfig(data["output"] as? Map<String, Any?> ?: emptyMap(), "apk", "app-release.apk")

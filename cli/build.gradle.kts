@@ -23,6 +23,7 @@ tasks.jar {
     from(configurations.runtimeClasspath.get()
         .map { if (it.isDirectory) it else zipTree(it) })
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    archiveFileName.set("mobilectl.jar")
 }
 
 // Create distribution scripts
@@ -33,4 +34,16 @@ distributions {
             from("LICENSE")
         }
     }
+}
+
+// Create a distribution task
+tasks.jar {
+    doLast {
+        val jarFile = File(archiveFile.get().asFile.absolutePath)
+        jarFile.setExecutable(true)
+    }
+}
+
+tasks.build {
+    dependsOn(tasks.jar)
 }

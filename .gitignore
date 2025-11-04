@@ -6,6 +6,8 @@ out/
 *.jar
 *.class
 !src/**/build/
+mobilectl.ps1
+mobilectl.sh
 
 # IDE
 .idea/

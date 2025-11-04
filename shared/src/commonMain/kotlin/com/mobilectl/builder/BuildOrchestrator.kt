@@ -11,7 +11,8 @@ import com.mobilectl.util.createLogger
  */
 class BuildOrchestrator(
     private val detector: ProjectDetector,
-    private val buildManager: BuildManager
+    private val buildManager: BuildManager,
+
 ) {
     private val logger = createLogger("BuildOrchestrator")
 
@@ -59,7 +60,7 @@ class BuildOrchestrator(
                 )
             }
 
-            buildManager.build(targetPlatforms, baseDir)
+            buildManager.build(targetPlatforms, config, baseDir)
         } catch (e: Exception) {
             logger.error("Build failed", e)
             BuildResult(
