@@ -8,10 +8,6 @@ plugins {
 group = "com.mobilectl"
 version = "0.1.0"
 
-repositories {
-    mavenCentral()
-}
-
 kotlin {
     jvm {
         compilations.all {
