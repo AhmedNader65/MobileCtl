@@ -1,9 +1,11 @@
 # Gradle
 .gradle/
 build/
+**/build/
 out/
 *.jar
 *.class
+!src/**/build/
 
 # IDE
 .idea/
@@ -12,6 +14,7 @@ out/
 *.iws
 *.ipr
 *.sw*
+xcuserdata
 *.bak
 
 # JVM
@@ -23,6 +26,7 @@ local.properties
 .DS_Store
 Thumbs.db
 *.log
+captures
 
 # Environment
 .env
@@ -50,3 +54,11 @@ npm-debug.log
 
 # Native binaries
 native/build/
+.cxx
+*.xcodeproj/*
+!*.xcodeproj/project.pbxproj
+!*.xcodeproj/xcshareddata/
+!*.xcodeproj/project.xcworkspace/
+!*.xcworkspace/contents.xcworkspacedata
+**/xcshareddata/WorkspaceSettings.xcsettings
+.externalNativeBuild
