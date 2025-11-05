@@ -5,6 +5,9 @@ import com.github.ajalt.clikt.core.main
 import com.github.ajalt.clikt.core.subcommands
 import com.mobilectl.commands.BuildCommand
 import com.mobilectl.commands.ChangelogCommand
+import com.mobilectl.commands.ChangelogGenerateCommand
+import com.mobilectl.commands.ChangelogShowCommand
+import com.mobilectl.commands.ChangelogUpdateCommand
 import com.mobilectl.commands.DeployCommand
 import com.mobilectl.commands.InfoCommand
 import com.mobilectl.commands.VersionBumpCommand
@@ -36,7 +39,11 @@ fun main(args: Array<String>) {
                     VersionBumpCommand(),
                     VersionRestoreCommand()
                 ),
-                ChangelogCommand(),
+                ChangelogCommand().subcommands(
+                    ChangelogGenerateCommand(),
+                    ChangelogShowCommand(),
+                    ChangelogUpdateCommand()
+                ),
                 InfoCommand()
             )
             .main(args)
@@ -48,15 +55,6 @@ fun main(args: Array<String>) {
         System.exit(1)
     }
 }
-
-class MobileCtlCli : CliktCommand(
-    name = "mobilectl"
-) {
-    override fun run() {
-        // Help is shown if no subcommand
-    }
-}
-
 
 private fun showHelp() {
     println(

@@ -30,7 +30,7 @@ class ConfigParserTest {
         assertEquals("MyApp", config.app.name)
         assertEquals("com.example.myapp", config.app.identifier)
         assertEquals("1.0.0", config.app.version)
-        assertTrue(config.build.android.enabled)
+        assertTrue(config.build.android.enabled == true)
     }
 
     @Test

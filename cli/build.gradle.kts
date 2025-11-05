@@ -7,6 +7,9 @@ dependencies {
     implementation(project(":shared"))
     implementation("com.github.ajalt.clikt:clikt:5.0.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+    testImplementation(kotlin("test"))
+    testImplementation("io.kotest:kotest-framework-engine:5.7.2")
+    testImplementation("io.kotest:kotest-assertions-core:5.7.2")
 }
 
 application {

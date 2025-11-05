@@ -8,6 +8,7 @@ import com.mobilectl.model.buildConfig.KeystoreConfig
 import com.mobilectl.model.buildConfig.OutputConfig
 import com.mobilectl.model.changelog.ChangelogConfig
 import com.mobilectl.model.changelog.CommitType
+import com.mobilectl.model.changelog.ReleaseNotes
 import com.mobilectl.model.changelog.getDefaultCommitTypes
 import com.mobilectl.model.deploy.DeployConfig
 import com.mobilectl.model.deploy.DeploymentDestination
@@ -57,7 +58,9 @@ class SnakeYamlConfigParser : ConfigParser {
             app = convertToAppConfig(data["app"] as? Map<String, Any?> ?: emptyMap()),
             build = convertToBuildConfig(data["build"] as? Map<String, Any?> ?: emptyMap()),
             version = convertToVersionConfig(data["version"] as? Map<String, Any?> ?: emptyMap()),
-            changelog = convertToChangelogConfig(data["changelog"] as? Map<String, Any?> ?: emptyMap()),
+            changelog = convertToChangelogConfig(
+                data["changelog"] as? Map<String, Any?> ?: emptyMap()
+            ),
             deploy = convertToDeployConfig(data["deploy"] as? Map<String, Any?> ?: emptyMap()),
             notify = convertToNotifyConfig(data["notify"] as? Map<String, Any?> ?: emptyMap()),
             report = convertToReportConfig(data["report"] as? Map<String, Any?> ?: emptyMap()),
@@ -86,9 +89,14 @@ class SnakeYamlConfigParser : ConfigParser {
             projectPath = data["project_path"] as? String ?: ".",
             defaultFlavor = data["default_flavor"] as? String ?: "",
             defaultType = data["default_type"] as? String ?: "release",
-            gradleProperties = (data["gradle_properties"] as? Map<*, *>)?.mapKeys { it.key.toString() }?.mapValues { it.value.toString() } ?: emptyMap(),
+            gradleProperties = (data["gradle_properties"] as? Map<*, *>)?.mapKeys { it.key.toString() }
+                ?.mapValues { it.value.toString() } ?: emptyMap(),
             keystore = convertToKeystoreConfig(data["keystore"] as? Map<String, Any?>),
-            output = convertToOutputConfig(data["output"] as? Map<String, Any?> ?: emptyMap(), "apk", "app-release.apk")
+            output = convertToOutputConfig(
+                data["output"] as? Map<String, Any?> ?: emptyMap(),
+                "apk",
+                "app-release.apk"
+            )
         )
     }
 
@@ -101,7 +109,11 @@ class SnakeYamlConfigParser : ConfigParser {
             destination = data["destination"] as? String ?: "generic/platform=iOS",
             codeSignIdentity = data["code_sign_identity"] as? String,
             provisioningProfile = data["provisioning_profile"] as? String,
-            output = convertToOutputConfig(data["output"] as? Map<String, Any?> ?: emptyMap(), "ipa", "app-release.ipa")
+            output = convertToOutputConfig(
+                data["output"] as? Map<String, Any?> ?: emptyMap(),
+                "ipa",
+                "app-release.ipa"
+            )
         )
     }
 
@@ -116,7 +128,11 @@ class SnakeYamlConfigParser : ConfigParser {
         }
     }
 
-    private fun convertToOutputConfig(data: Map<String, Any?>, defaultFormat: String, defaultName: String): OutputConfig {
+    private fun convertToOutputConfig(
+        data: Map<String, Any?>,
+        defaultFormat: String,
+        defaultName: String
+    ): OutputConfig {
         return OutputConfig(
             format = data["format"] as? String ?: defaultFormat,
             name = data["name"] as? String ?: defaultName
@@ -128,7 +144,8 @@ class SnakeYamlConfigParser : ConfigParser {
             current = data["current"] as? String ?: "1.0.0",
             autoIncrement = data["auto_increment"] as? Boolean ?: false,
             bumpStrategy = data["bump_strategy"] as? String ?: "semver",
-            filesToUpdate = (data["files_to_update"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
+            filesToUpdate = (data["files_to_update"] as? List<*>)?.mapNotNull { it as? String }
+                ?: emptyList()
         )
     }
 
@@ -143,21 +160,51 @@ class SnakeYamlConfigParser : ConfigParser {
             }
         } ?: getDefaultCommitTypes()
 
+        // Parse releases map
+        val releasesMap = mutableMapOf<String, ReleaseNotes>()
+        (data["releases"] as? Map<String, Any?>)?.forEach { (version, releaseData) ->
+            if (releaseData is Map<*, *>) {
+                @Suppress("UNCHECKED_CAST")
+                val releaseMap = releaseData as Map<String, Any?>
+
+                val highlights = releaseMap["highlights"] as? String
+                val breakingChanges = (releaseMap["breaking_changes"] as? List<*>)
+                    ?.mapNotNull { it as? String } ?: emptyList()
+                val contributors = (releaseMap["contributors"] as? List<*>)
+                    ?.mapNotNull { it as? String } ?: emptyList()
+
+                releasesMap[version] = ReleaseNotes(
+                    highlights = highlights,
+                    breaking_changes = breakingChanges,
+                    contributors = contributors
+                )
+            }
+        }
+
         return ChangelogConfig(
             enabled = data["enabled"] as? Boolean ?: true,
             format = data["format"] as? String ?: "markdown",
-            includeConventionalCommits = data["include_conventional_commits"] as? Boolean ?: true,
-            commitTypes = commitTypesList,
-            outputFile = data["output_file"] as? String ?: "CHANGELOG.md"
+            outputFile = data["output_file"] as? String ?: "CHANGELOG.md",
+            includeBreakingChanges = data["include_breaking_changes"] as? Boolean ?: true,
+            includeContributors = data["include_contributors"] as? Boolean ?: true,
+            includeStats = data["include_stats"] as? Boolean ?: true,
+            includeCompareLinks = data["include_compare_links"] as? Boolean ?: true,
+            groupByVersion = data["group_by_version"] as? Boolean ?: true,
+            releases = releasesMap,
+            commitTypes = commitTypesList
         )
     }
+
 
     private fun convertToDeployConfig(data: Map<String, Any?>): DeployConfig {
         val destinations = (data["destinations"] as? List<*>)?.mapNotNull { item ->
             (item as? Map<String, Any?>)?.let {
                 DeploymentDestination(
                     type = it["type"] as? String ?: "",
-                    config = (it["config"] as? Map<*, *>)?.mapKeys { (k, _) -> k.toString() }?.mapValues { (_, v) -> v.toString() } ?: (it as? Map<String, Any?>)?.filterKeys { k -> k != "type" && k != "enabled" }?.mapValues { (_, v) -> v.toString() } ?: emptyMap(),
+                    config = (it["config"] as? Map<*, *>)?.mapKeys { (k, _) -> k.toString() }
+                        ?.mapValues { (_, v) -> v.toString() }
+                        ?: (it as? Map<String, Any?>)?.filterKeys { k -> k != "type" && k != "enabled" }
+                            ?.mapValues { (_, v) -> v.toString() } ?: emptyMap(),
                     enabled = it["enabled"] as? Boolean ?: true
                 )
             }
@@ -170,7 +217,9 @@ class SnakeYamlConfigParser : ConfigParser {
         return NotifyConfig(
             slack = convertToSlackNotifyConfig(data["slack"] as? Map<String, Any?> ?: emptyMap()),
             email = convertToEmailNotifyConfig(data["email"] as? Map<String, Any?> ?: emptyMap()),
-            webhook = convertToWebhookNotifyConfig(data["webhook"] as? Map<String, Any?> ?: emptyMap())
+            webhook = convertToWebhookNotifyConfig(
+                data["webhook"] as? Map<String, Any?> ?: emptyMap()
+            )
         )
     }
 
@@ -179,15 +228,18 @@ class SnakeYamlConfigParser : ConfigParser {
             enabled = data["enabled"] as? Boolean ?: false,
             webhookUrl = data["webhook_url"] as? String ?: "",
             channel = data["channel"] as? String,
-            notifyOn = (data["notify_on"] as? List<*>)?.mapNotNull { it as? String } ?: listOf("success", "failure")
+            notifyOn = (data["notify_on"] as? List<*>)?.mapNotNull { it as? String }
+                ?: listOf("success", "failure")
         )
     }
 
     private fun convertToEmailNotifyConfig(data: Map<String, Any?>): EmailNotifyConfig {
         return EmailNotifyConfig(
             enabled = data["enabled"] as? Boolean ?: false,
-            recipients = (data["recipients"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
-            notifyOn = (data["notify_on"] as? List<*>)?.mapNotNull { it as? String } ?: listOf("failure")
+            recipients = (data["recipients"] as? List<*>)?.mapNotNull { it as? String }
+                ?: emptyList(),
+            notifyOn = (data["notify_on"] as? List<*>)?.mapNotNull { it as? String }
+                ?: listOf("failure")
         )
     }
 
@@ -203,7 +255,8 @@ class SnakeYamlConfigParser : ConfigParser {
         return ReportConfig(
             enabled = data["enabled"] as? Boolean ?: false,
             format = data["format"] as? String ?: "html",
-            include = (data["include"] as? List<*>)?.mapNotNull { it as? String } ?: listOf("build_info", "git_info", "build_duration"),
+            include = (data["include"] as? List<*>)?.mapNotNull { it as? String }
+                ?: listOf("build_info", "git_info", "build_duration"),
             outputPath = data["output_path"] as? String ?: "./build-reports"
         )
     }
