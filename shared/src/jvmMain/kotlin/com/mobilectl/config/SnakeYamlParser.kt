@@ -10,8 +10,10 @@ import com.mobilectl.model.changelog.ChangelogConfig
 import com.mobilectl.model.changelog.CommitType
 import com.mobilectl.model.changelog.ReleaseNotes
 import com.mobilectl.model.changelog.getDefaultCommitTypes
+import com.mobilectl.model.deploy.AndroidDeployConfig
 import com.mobilectl.model.deploy.DeployConfig
 import com.mobilectl.model.deploy.DeploymentDestination
+import com.mobilectl.model.deploy.IosDeployConfig
 import com.mobilectl.model.notifications.EmailNotifyConfig
 import com.mobilectl.model.notifications.NotifyConfig
 import com.mobilectl.model.notifications.SlackNotifyConfig
@@ -61,7 +63,7 @@ class SnakeYamlConfigParser : ConfigParser {
             changelog = convertToChangelogConfig(
                 data["changelog"] as? Map<String, Any?> ?: emptyMap()
             ),
-            deploy = convertToDeployConfig(data["deploy"] as? Map<String, Any?> ?: emptyMap()),
+            deploy = convertToDeployConfig(data["deploy"] as? Map<String, Any?>),
             notify = convertToNotifyConfig(data["notify"] as? Map<String, Any?> ?: emptyMap()),
             report = convertToReportConfig(data["report"] as? Map<String, Any?> ?: emptyMap()),
             env = data["env"] as? Map<String, String> ?: emptyMap()
@@ -196,23 +198,46 @@ class SnakeYamlConfigParser : ConfigParser {
     }
 
 
-    private fun convertToDeployConfig(data: Map<String, Any?>): DeployConfig {
-        val destinations = (data["destinations"] as? List<*>)?.mapNotNull { item ->
-            (item as? Map<String, Any?>)?.let {
-                DeploymentDestination(
-                    type = it["type"] as? String ?: "",
-                    config = (it["config"] as? Map<*, *>)?.mapKeys { (k, _) -> k.toString() }
-                        ?.mapValues { (_, v) -> v.toString() }
-                        ?: (it as? Map<String, Any?>)?.filterKeys { k -> k != "type" && k != "enabled" }
-                            ?.mapValues { (_, v) -> v.toString() } ?: emptyMap(),
-                    enabled = it["enabled"] as? Boolean ?: true
-                )
-            }
-        } ?: listOf(DeploymentDestination(type = "local", config = mapOf("path" to "./builds")))
+    private fun convertToDeployConfig(data: Map<String, Any?>?): DeployConfig {
+        if (data == null) return DeployConfig()
 
-        return DeployConfig(destinations = destinations)
+        val android = convertToAndroidDeployConfig(data["android"] as? Map<String, Any?>)
+        val ios = convertToIosDeployConfig(data["ios"] as? Map<String, Any?>)
+
+        // If neither android nor ios, return null (deploy not configured)
+        if (android == null && ios == null) return DeployConfig()
+
+        return DeployConfig(
+            enabled = (data["enabled"] as? Boolean) ?: false,
+            android = android,
+            ios = ios
+        )
     }
 
+    private fun convertToAndroidDeployConfig(data: Map<String, Any?>?): AndroidDeployConfig? {
+        if (data == null) return null
+
+        return AndroidDeployConfig(
+            enabled = (data["enabled"] as? Boolean) ?: true,
+            destination = (data["destination"] as? String) ?: "firebase",
+            appId = (data["appId"] as? String) ?: "",
+            token = (data["token"] as? String) ?: "",
+            artifactPath = (data["artifactPath"] as? String) ?: ""
+        )
+    }
+
+    private fun convertToIosDeployConfig(data: Map<String, Any?>?): IosDeployConfig? {
+        if (data == null) return null
+
+        return IosDeployConfig(
+            enabled = (data["enabled"] as? Boolean) ?: true,
+            destination = (data["destination"] as? String) ?: "testflight",
+            appId = (data["appId"] as? String) ?: "",
+            teamId = (data["teamId"] as? String) ?: "",
+            apiKey = (data["apiKey"] as? String) ?: "",
+            artifactPath = (data["artifactPath"] as? String) ?: ""
+        )
+    }
     private fun convertToNotifyConfig(data: Map<String, Any?>): NotifyConfig {
         return NotifyConfig(
             slack = convertToSlackNotifyConfig(data["slack"] as? Map<String, Any?> ?: emptyMap()),
