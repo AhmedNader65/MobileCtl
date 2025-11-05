@@ -1,8 +1,11 @@
 package com.mobilectl.config
 
+import com.mobilectl.detector.ProjectDetector
 import com.mobilectl.util.FileUtil
+import java.io.File
 
-class ConfigLoader(private val fileUtil: FileUtil) {
+class ConfigLoader(private val fileUtil: FileUtil,
+                   private val detector: ProjectDetector? = null) {
 
     /**
      * Load config from mobileops.yml file
@@ -20,7 +23,7 @@ class ConfigLoader(private val fileUtil: FileUtil) {
             val config = parser.parse(yamlContent)
 
             // Validate config
-            val validator = ConfigValidator()
+            val validator = ConfigValidator(detector)
             val errors = validator.validate(config)
 
             if (errors.isNotEmpty()) {
@@ -46,6 +49,39 @@ class ConfigLoader(private val fileUtil: FileUtil) {
             Result.failure(e)
         }
     }
+
+    fun updateVersionOnly(
+        version: String,
+        filePath: String = "mobileops.yml"
+    ): Result<Unit> {
+        return try {
+            val file = File(filePath)
+
+            // Read existing content
+            val existingContent = if (file.exists()) {
+                file.readText()
+            } else {
+                ""
+            }
+
+            // Update just the version field
+            val updatedContent = if (existingContent.contains("version:")) {
+                existingContent.replace(
+                    """version:[\s\S]*?current:\s*["']?[^"'\n]+["']?""".toRegex(),
+                    """version:
+  current: "$version""""
+                )
+            } else {
+                existingContent + "\nversion:\n  current: \"$version\"\n"
+            }
+
+            file.writeText(updatedContent)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
 }
 
 class ConfigValidationException(val errors: List<String>) : Exception(

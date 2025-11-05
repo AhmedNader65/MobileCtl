@@ -14,7 +14,8 @@ class JvmBuildManager(
     private val androidBuilder: AndroidBuilder,
     private val iosBuilder: IosBuilder
 ) : BuildManager {
-    override suspend fun build(platforms: Set<Platform>,config: Config, baseDir: String): BuildResult = withContext(Dispatchers.Default) {
+    override suspend fun build(platforms: Set<Platform>,config: Config): BuildResult = withContext(Dispatchers.Default) {
+        val baseDir = System.getProperty("user.dir")
         val outputs = mutableListOf<BuildOutput>()
         val startTime = System.currentTimeMillis()
 

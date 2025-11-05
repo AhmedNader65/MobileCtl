@@ -17,7 +17,6 @@ class BuildOrchestrator(
     private val logger = createLogger("BuildOrchestrator")
 
     suspend fun build(
-        baseDir: String,
         config: Config,
         platforms: Set<Platform>? = null,
         verbose: Boolean = false,
@@ -26,9 +25,8 @@ class BuildOrchestrator(
         return try {
             // Detect platforms if not specified
             val targetPlatforms = platforms ?: detector.detectPlatforms(
-                baseDir,
-                config.build.android.enabled,
-                config.build.ios.enabled
+                config.build.android.enabled == true,
+                config.build.ios.enabled == true
             )
 
             if (targetPlatforms.isEmpty()) {
@@ -60,7 +58,7 @@ class BuildOrchestrator(
                 )
             }
 
-            buildManager.build(targetPlatforms, config, baseDir)
+            buildManager.build(targetPlatforms, config)
         } catch (e: Exception) {
             logger.error("Build failed", e)
             BuildResult(

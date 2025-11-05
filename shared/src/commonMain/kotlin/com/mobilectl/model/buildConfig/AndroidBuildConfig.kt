@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class AndroidBuildConfig(
-    val enabled: Boolean = true,
+    val enabled: Boolean? = null,
     val projectPath: String = ".",
     var defaultFlavor: String = "",
     var defaultType: String = "release",

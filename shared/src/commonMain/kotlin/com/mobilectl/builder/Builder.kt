@@ -31,8 +31,7 @@ data class BuildOutput(
 
 interface BuildManager {
     suspend fun build(platforms: Set<Platform>,
-                      config: Config,
-                      baseDir: String): BuildResult
+                      config: Config): BuildResult
 }
 
 data class BuildResult(

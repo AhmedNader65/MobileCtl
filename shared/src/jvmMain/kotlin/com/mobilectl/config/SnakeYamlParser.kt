@@ -82,7 +82,7 @@ class SnakeYamlConfigParser : ConfigParser {
 
     private fun convertToAndroidConfig(data: Map<String, Any?>): AndroidBuildConfig {
         return AndroidBuildConfig(
-            enabled = data["enabled"] as? Boolean ?: true,
+            enabled = data["enabled"] as? Boolean,
             projectPath = data["project_path"] as? String ?: ".",
             defaultFlavor = data["default_flavor"] as? String ?: "",
             defaultType = data["default_type"] as? String ?: "release",
@@ -94,7 +94,7 @@ class SnakeYamlConfigParser : ConfigParser {
 
     private fun convertToIosConfig(data: Map<String, Any?>): IosBuildConfig {
         return IosBuildConfig(
-            enabled = data["enabled"] as? Boolean ?: true,
+            enabled = data["enabled"] as? Boolean,
             projectPath = data["project_path"] as? String ?: ".",
             scheme = data["scheme"] as? String ?: "",
             configuration = data["configuration"] as? String ?: "Release",
@@ -125,6 +125,7 @@ class SnakeYamlConfigParser : ConfigParser {
 
     private fun convertToVersionConfig(data: Map<String, Any?>): VersionConfig {
         return VersionConfig(
+            current = data["current"] as? String ?: "1.0.0",
             autoIncrement = data["auto_increment"] as? Boolean ?: false,
             bumpStrategy = data["bump_strategy"] as? String ?: "semver",
             filesToUpdate = (data["files_to_update"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList()

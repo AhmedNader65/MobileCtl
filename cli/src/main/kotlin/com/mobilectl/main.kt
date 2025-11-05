@@ -7,12 +7,12 @@ import com.mobilectl.commands.BuildCommand
 import com.mobilectl.commands.ChangelogCommand
 import com.mobilectl.commands.DeployCommand
 import com.mobilectl.commands.InfoCommand
+import com.mobilectl.commands.VersionBumpCommand
 import com.mobilectl.commands.VersionCommand
-import com.mobilectl.config.ConfigLoader
-import com.mobilectl.util.createFileUtil
-import kotlinx.coroutines.runBlocking
+import com.mobilectl.commands.VersionRestoreCommand
+import com.mobilectl.commands.VersionShowCommand
 
-fun main(args: Array<String>){
+fun main(args: Array<String>) {
     try {
         // Handle --version and --help directly
         when {
@@ -20,6 +20,7 @@ fun main(args: Array<String>){
                 println("mobilectl v0.1.0")
                 return
             }
+
             args.isEmpty() || args.contains("--help") -> {
                 showHelp()
                 return
@@ -30,7 +31,11 @@ fun main(args: Array<String>){
             .subcommands(
                 BuildCommand(),
                 DeployCommand(),
-                VersionCommand(),
+                VersionCommand().subcommands(
+                    VersionShowCommand(),
+                    VersionBumpCommand(),
+                    VersionRestoreCommand()
+                ),
                 ChangelogCommand(),
                 InfoCommand()
             )
@@ -54,7 +59,8 @@ class MobileCtlCli : CliktCommand(
 
 
 private fun showHelp() {
-    println("""
+    println(
+        """
         ╭────────────────────────────────────────────────────────────╮
         │                      🔧 mobilectl v0.1.0                  │
         │          Modern DevOps automation for mobile apps          │
@@ -74,5 +80,6 @@ private fun showHelp() {
           --version          Show version
           --verbose          Verbose output
           --dry-run          Show what would be done without doing it
-    """.trimIndent())
+    """.trimIndent()
+    )
 }

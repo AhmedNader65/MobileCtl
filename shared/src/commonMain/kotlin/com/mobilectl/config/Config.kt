@@ -14,7 +14,7 @@ import kotlinx.serialization.Serializable
 data class Config(
     val app: AppConfig = AppConfig(),
     val build: BuildConfig = BuildConfig(),
-    val version: VersionConfig = VersionConfig(),
+    val version: VersionConfig? = null,
     val changelog: ChangelogConfig = ChangelogConfig(),
     val deploy: DeployConfig = DeployConfig(),
     val notify: NotifyConfig = NotifyConfig(),

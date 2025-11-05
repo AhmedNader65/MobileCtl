@@ -1,5 +1,7 @@
 package com.mobilectl.config
 
+import com.mobilectl.detector.ProjectDetector
+
 expect interface ConfigParser {
     /**
      * Parse YAML file into Config object
@@ -14,31 +16,30 @@ expect interface ConfigParser {
 
 expect fun createConfigParser(): ConfigParser
 
-class ConfigValidator {
+class ConfigValidator(
+    private val detector: ProjectDetector? = null
+) {
     fun validate(config: Config): List<String> {
         val errors = mutableListOf<String>()
 
-        // Check if at least one platform is enabled
-        if (!config.build.android.enabled && !config.build.ios.enabled) {
-            errors.add("At least one platform (android or ios) must be enabled")
-        }
+        // Get actual enabled platforms from detector if available
+        val androidEnabled = config.build.android.enabled
+            ?: (detector?.isAndroidProject() == true)
+        val iosEnabled = config.build.ios.enabled
+            ?: (detector?.isIosProject() == true)
 
-        // Check deploy destinations
-        if (config.deploy.destinations.isEmpty()) {
-            errors.add("At least one deploy destination must be configured")
-        }
-
-        // Validate Android config
-        if (config.build.android.enabled) {
-            if (config.build.android.gradleTask.isBlank()) {
-                errors.add("Android gradle_task cannot be empty")
+        // Only validate what's actually enabled
+        if (androidEnabled) {
+            val androidConfig = config.build.android
+            if (androidConfig.defaultType.isBlank() == true) {
+                errors.add("Android default_type cannot be empty")
             }
         }
 
-        // Validate iOS config
-        if (config.build.ios.enabled) {
-            if (config.build.ios.scheme.isBlank()) {
-                errors.add("iOS scheme cannot be empty (if iOS is enabled)")
+        if (iosEnabled) {
+            val iosConfig = config.build.ios
+            if (iosConfig.scheme.isBlank() == true) {
+                errors.add("iOS scheme cannot be empty")
             }
         }
 

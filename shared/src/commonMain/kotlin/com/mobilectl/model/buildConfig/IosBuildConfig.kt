@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class IosBuildConfig(
-    val enabled: Boolean = true,
+    val enabled: Boolean? = null,
     val projectPath: String = ".",
     val scheme: String = "",
     val configuration: String = "Release",
