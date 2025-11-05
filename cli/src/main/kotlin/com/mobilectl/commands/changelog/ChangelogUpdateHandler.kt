@@ -1,7 +1,7 @@
 package com.mobilectl.commands.changelog
 
 import com.mobilectl.changelog.ChangelogOrchestrator
-import com.mobilectl.changelog.JvmGitCommitParser
+import com.mobilectl.changelog.JGitCommitParser
 import com.mobilectl.changelog.createChangelogStateManager
 import com.mobilectl.changelog.createChangelogWriter
 import com.mobilectl.config.ConfigLoader
@@ -43,7 +43,7 @@ class ChangelogUpdateHandler(
             }
 
             // Create orchestrator
-            val parser = JvmGitCommitParser()
+            val parser = JGitCommitParser()
             val orchestrator = ChangelogOrchestrator(parser, writer,
                 createChangelogStateManager(), changelogConfig)
 

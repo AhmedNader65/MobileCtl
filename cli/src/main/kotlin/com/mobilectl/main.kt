@@ -6,6 +6,7 @@ import com.github.ajalt.clikt.core.subcommands
 import com.mobilectl.commands.BuildCommand
 import com.mobilectl.commands.ChangelogCommand
 import com.mobilectl.commands.ChangelogGenerateCommand
+import com.mobilectl.commands.ChangelogRestoreCommand
 import com.mobilectl.commands.ChangelogShowCommand
 import com.mobilectl.commands.ChangelogUpdateCommand
 import com.mobilectl.commands.DeployCommand
@@ -42,6 +43,7 @@ fun main(args: Array<String>) {
                 ChangelogCommand().subcommands(
                     ChangelogGenerateCommand(),
                     ChangelogShowCommand(),
+                    ChangelogRestoreCommand(),
                     ChangelogUpdateCommand()
                 ),
                 InfoCommand()

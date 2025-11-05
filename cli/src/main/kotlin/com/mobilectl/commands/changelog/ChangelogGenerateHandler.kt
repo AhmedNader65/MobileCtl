@@ -1,9 +1,10 @@
 package com.mobilectl.commands.changelog
 
 import com.mobilectl.changelog.ChangelogOrchestrator
-import com.mobilectl.changelog.JvmGitCommitParser
+import com.mobilectl.changelog.JGitCommitParser
+import com.mobilectl.changelog.SafeChangelogWriter
+import com.mobilectl.changelog.createBackupManager
 import com.mobilectl.changelog.createChangelogStateManager
-import com.mobilectl.changelog.createChangelogWriter
 import com.mobilectl.config.ConfigLoader
 import com.mobilectl.detector.createProjectDetector
 import com.mobilectl.util.createFileUtil
@@ -24,68 +25,53 @@ class ChangelogGenerateHandler(
 
     suspend fun execute() {
         try {
-            // Load config
+            // 1. Load config (validation happens here!)
             val fileUtil = createFileUtil()
             val detector = createProjectDetector()
             val configLoader = ConfigLoader(fileUtil, detector)
-            val config = configLoader.loadConfig(configFile).getOrNull() ?: return
+
+            val config = configLoader.loadConfig(configFile).getOrNull()
+                ?: return  // Error already printed by ConfigLoader
 
             val changelogConfig = config.changelog ?: return
             if (!changelogConfig.enabled) {
-                out.println("⚠️  Changelog is disabled in config")
+                println("⚠️  Changelog is disabled in config")
                 return
             }
 
-            // Create orchestrator
-            val parser = JvmGitCommitParser()
-            val writer = createChangelogWriter()
+            // 2. Create orchestrator and generate
+            val parser = JGitCommitParser()
+            val backupManager = createBackupManager()
+            val writer = SafeChangelogWriter(backupManager)
+            val stateManager = createChangelogStateManager()
+
             val orchestrator = ChangelogOrchestrator(
-                parser, writer,
-                createChangelogStateManager(), changelogConfig
+                parser,
+                writer,
+                stateManager,
+                changelogConfig
             )
 
-            out.println("📝 Generating changelog...")
-            out.println("   Include: " + listOfNotNull(
-                if (changelogConfig.includeBreakingChanges) "breaking changes" else null,
-                if (changelogConfig.includeContributors) "contributors" else null,
-                if (changelogConfig.includeStats) "stats" else null,
-                if (changelogConfig.includeCompareLinks) "compare links" else null
-            ).joinToString(", "))
-            out.println("   Mode: ${if (append) "append" else "overwrite"}")
-            if (fromTag != null) {
-                out.println("   From tag: $fromTag")
-            } else if (useLastState) {
-                out.println("   Mode: Resume from last generation")
-            }
+            println("📝 Generating changelog...")
 
-            // Generate
             val result = orchestrator.generate(
                 fromTag = fromTag,
                 dryRun = dryRun,
                 append = append,
-                useLastState = useLastState  // ← PASS THIS
+                useLastState = useLastState
             )
 
             if (!result.success) {
-                out.println("❌ ${result.error}")
+                println("❌ ${result.error}")
                 return
             }
 
-            out.println("✅ Found ${result.commitCount} commits")
+            println("✅ Generated successfully")
+            println("   Found ${result.commitCount} commits")
+            println("   Saved to: ${result.changelogPath}")
 
-            if (dryRun) {
-                out.println("\n📋 DRY-RUN: Preview\n")
-                out.println(result.content)
-                return
-            }
-
-            out.println("💾 Changelog saved to: ${result.changelogPath}")
-            if (verbose && result.content != null) {
-                out.println("\n📄 Preview:\n")
-                out.println(result.content)
-            }
         } catch (e: Exception) {
-            out.println("❌ Error: ${e.message}")
+            println("❌ Error: ${e.message}")
         }
     }
 }

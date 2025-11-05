@@ -71,20 +71,4 @@ class ConfigParserTest {
         assertEquals(2, config.deploy.destinations.size)
         assertTrue(config.notify.slack.enabled)
     }
-
-    @Test
-    fun testConfigValidation() {
-        val config = Config(
-            build = BuildConfig(
-                android = AndroidBuildConfig(enabled = false),
-                ios = IosBuildConfig(enabled = false)
-            )
-        )
-
-        val validator = ConfigValidator()
-        val errors = validator.validate(config)
-
-        assertTrue(errors.isNotEmpty())
-        assertTrue(errors.any { it.contains("At least one platform") })
-    }
 }

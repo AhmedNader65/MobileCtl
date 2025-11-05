@@ -32,7 +32,9 @@ class ChangelogOrchestrator(
         append: Boolean = true,
         useLastState: Boolean = true
     ): GenerateResult {
+
         return try {
+            // Rest of existing generate logic...
             var actualFromTag = fromTag
             var actualToTag = toTag
 
@@ -86,13 +88,13 @@ class ChangelogOrchestrator(
             }
 
             val existingContent = writer.read(config.outputFile)
-            val finalContent =
-                if (append && existingContent != null && existingContent.isNotEmpty()) {
-                    appendChangelog(newContent, existingContent)
-                } else {
-                    newContent
-                }
+            val finalContent = if (append && existingContent != null && existingContent.isNotEmpty()) {
+                appendChangelog(newContent, existingContent)
+            } else {
+                newContent
+            }
 
+            // Safe write with backup
             val written = writer.write(finalContent, config.outputFile)
 
             if (written) {
@@ -120,7 +122,7 @@ class ChangelogOrchestrator(
         } catch (e: Exception) {
             GenerateResult(
                 success = false,
-                error = e.message
+                error = "Generation failed: ${e.message}"
             )
         }
     }

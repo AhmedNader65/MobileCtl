@@ -1,89 +1,91 @@
 package com.mobilectl.config
 
 import com.mobilectl.detector.ProjectDetector
+import com.mobilectl.model.ValidationError
+import com.mobilectl.model.hasErrors
+import com.mobilectl.model.printReport
+import com.mobilectl.model.warnings
 import com.mobilectl.util.FileUtil
+import com.mobilectl.validation.BuildConfigValidator
+import com.mobilectl.validation.ChangelogConfigValidator
+import com.mobilectl.validation.ComponentValidator
+import com.mobilectl.validation.VersionConfigValidator
 import java.io.File
 
-class ConfigLoader(private val fileUtil: FileUtil,
-                   private val detector: ProjectDetector? = null) {
+class ConfigLoader(
+    private val fileUtil: FileUtil,
+    private val projectDetector: ProjectDetector,
+    private val validators: List<ComponentValidator> = defaultValidators(projectDetector)
+) {
 
-    /**
-     * Load config from mobileops.yml file
-     * Falls back to defaults if file not found
-     */
-    suspend fun loadConfig(filePath: String = "mobileops.yml"): Result<Config> {
+    suspend fun loadConfig(configPath: String?): Result<Config> {
         return try {
-            if (!fileUtil.exists(filePath)) {
-                // Return default config if file not found
-                return Result.success(Config())
-            }
+            val actualConfigPath = configPath ?: findDefaultConfigPath()
 
-            val yamlContent = fileUtil.readFile(filePath)
-            val parser = createConfigParser()
-            val config = parser.parse(yamlContent)
-
-            // Validate config
-            val validator = ConfigValidator(detector)
-            val errors = validator.validate(config)
-
-            if (errors.isNotEmpty()) {
-                return Result.failure(ConfigValidationException(errors))
-            }
-
-            Result.success(config)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    /**
-     * Save config to file
-     */
-    suspend fun saveConfig(config: Config, filePath: String = "mobileops.yml"): Result<Unit> {
-        return try {
-            val parser = createConfigParser()
-            val yamlContent = parser.toYaml(config)
-            fileUtil.writeFile(filePath, yamlContent)
-            Result.success(Unit)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    fun updateVersionOnly(
-        version: String,
-        filePath: String = "mobileops.yml"
-    ): Result<Unit> {
-        return try {
-            val file = File(filePath)
-
-            // Read existing content
-            val existingContent = if (file.exists()) {
-                file.readText()
-            } else {
-                ""
-            }
-
-            // Update just the version field
-            val updatedContent = if (existingContent.contains("version:")) {
-                existingContent.replace(
-                    """version:[\s\S]*?current:\s*["']?[^"'\n]+["']?""".toRegex(),
-                    """version:
-  current: "$version""""
+            if (!File(actualConfigPath).exists()) {
+                return Result.failure(
+                    Exception("Config file not found: $actualConfigPath")
                 )
-            } else {
-                existingContent + "\nversion:\n  current: \"$version\"\n"
             }
 
-            file.writeText(updatedContent)
-            Result.success(Unit)
+            println("📖 Loading config from: $actualConfigPath")
+
+            val yamlContent = fileUtil.readFile(actualConfigPath)
+
+            val parser = createConfigParser()
+            val rawConfig = try {
+                parser.parse(yamlContent)
+            } catch (e: Exception) {
+                return Result.failure(Exception("Failed to parse config YAML: ${e.message}"))
+            }
+
+            val errors = validateConfig(rawConfig)
+
+            if (errors.hasErrors()) {
+                errors.printReport()
+                return Result.failure(
+                    IllegalArgumentException("Configuration validation failed")
+                )
+            }
+
+            val warnings = errors.warnings()
+            if (warnings.isNotEmpty()) {
+                println()
+                warnings.printReport()
+                println()
+            }
+
+            Result.success(rawConfig)
+
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(Exception("Failed to load config: ${e.message}", e))
         }
     }
 
-}
+    // ✅ Now this is simple and extensible!
+    private fun validateConfig(config: Config): List<ValidationError> {
+        return validators.flatMap { validator ->
+            validator.validate(config)
+        }
+    }
 
-class ConfigValidationException(val errors: List<String>) : Exception(
-    "Config validation failed:\n" + errors.joinToString("\n") { "  - $it" }
-)
+    private fun findDefaultConfigPath(): String {
+        val possiblePaths = listOf(
+            "mobileops.yml",
+            "mobileops.yaml",
+            ".mobilectl/mobileops.yml",
+            ".mobilectl/mobileops.yaml"
+        )
+        return possiblePaths.find { File(it).exists() } ?: "mobileops.yml"
+    }
+
+    companion object {
+        fun defaultValidators(projectDetector: ProjectDetector): List<ComponentValidator> {
+            return listOf(
+                BuildConfigValidator(projectDetector),
+                ChangelogConfigValidator(),
+                VersionConfigValidator()
+            )
+        }
+    }
+}

@@ -4,6 +4,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class VersionConfig(
+    val enabled: Boolean = true,
     val current: String = "1.0.0",
     val autoIncrement: Boolean = false,
     val bumpStrategy: String = "semver",

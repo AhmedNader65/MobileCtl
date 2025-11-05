@@ -40,6 +40,7 @@ kotlin {
                 implementation("com.github.ajalt.clikt:clikt:5.0.3")
                 implementation("org.yaml:snakeyaml:2.5")
                 implementation("commons-io:commons-io:2.13.0")
+                implementation("org.eclipse.jgit:org.eclipse.jgit:6.7.0.202309050840-r")
 //                implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.16.1") // Might be useful later
             }
         }
@@ -50,4 +51,8 @@ kotlin {
             }
         }
     }
+}
+
+tasks.withType<Test> {
+    useJUnitPlatform()
 }

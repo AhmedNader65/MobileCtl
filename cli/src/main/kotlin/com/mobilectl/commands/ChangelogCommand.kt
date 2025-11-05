@@ -1,9 +1,12 @@
 package com.mobilectl.commands
 
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.parameters.arguments.argument
+import com.github.ajalt.clikt.parameters.arguments.optional
 import com.github.ajalt.clikt.parameters.options.flag
 import com.github.ajalt.clikt.parameters.options.option
 import com.mobilectl.commands.changelog.ChangelogGenerateHandler
+import com.mobilectl.commands.changelog.ChangelogRestoreHandler
 import com.mobilectl.commands.changelog.ChangelogShowHandler
 import com.mobilectl.commands.changelog.ChangelogUpdateHandler
 import kotlinx.coroutines.runBlocking
@@ -53,3 +56,14 @@ class ChangelogUpdateCommand : CliktCommand(name = "update") {
         }
     }
 }
+class ChangelogRestoreCommand : CliktCommand(name = "restore") {
+    private val backupId by argument("backup-id", help = "Backup to restore").optional()
+    private val verbose by option("--verbose", "-v").flag()
+
+    override fun run() {
+        runBlocking {
+            ChangelogRestoreHandler(backupId, verbose).execute()
+        }
+    }
+}
+
