@@ -7,7 +7,7 @@ The `mobilectl changelog` command manages your app's release notes and changelog
 **Key Features:**
 
 - 🤖 Auto-generates changelog from conventional commits
-- 📝 Multiple output formats (Markdown, HTML, JSON)
+- 📝 Markdown output format
 - 💾 Smart resumption (only processes new commits)
 - 📊 Includes stats, contributors, and breaking changes
 - 🔗 Links to commits and version comparisons
@@ -29,7 +29,6 @@ mobilectl changelog generate [OPTIONS]
 **Options:**
 
 - `--from-tag TAG` - Generate commits since specific tag
-- `--format FORMAT` - Output format: `markdown`, `html`, or `json` (default: markdown)
 - `--dry-run` - Preview without writing
 - `--verbose, -v` - Verbose output
 - `--append` - Append to existing changelog (default)
@@ -44,12 +43,6 @@ Generate changelog (processes all commits on first run, only new commits after):
 mobilectl changelog generate
 ```
 
-Generate HTML changelog:
-
-```bash
-mobilectl changelog generate --format html
-```
-
 Generate from specific tag:
 
 ```bash
@@ -60,12 +53,6 @@ Preview changes:
 
 ```bash
 mobilectl changelog generate --dry-run --verbose
-```
-
-Generate JSON format:
-
-```bash
-mobilectl changelog generate --format json
 ```
 
 Force full regeneration:
@@ -275,44 +262,6 @@ Major UI redesign with improved performance and better mobile support.
 ```
 
 
-### JSON Format
-
-```json
-{
-  "version": "1.5.0",
-  "date": "2025-11-05",
-  "stats": {
-    "totalCommits": 15,
-    "contributors": 3,
-    "breakingChanges": 2
-  },
-  "sections": {
-    "breaking": [
-      {"message": "API v1 endpoints removed", "hash": "abc123"},
-      {"message": "Configuration format changed", "hash": "def456"}
-    ],
-    "features": [
-      {"message": "Add dark mode support", "hash": "1a2b3c"},
-      {"message": "Implement real-time notifications", "hash": "2b3c4d"}
-    ],
-    "fixes": [
-      {"message": "Fix crash on login", "hash": "3c4d5e"},
-      {"message": "Fix memory leak in cache", "hash": "4d5e6f"}
-    ]
-  },
-  "contributors": {
-    "Ahmed Nader": 8,
-    "Jane Doe": 5,
-    "John Smith": 2
-  }
-}
-```
-
-
-### HTML Format
-
-Generates a styled HTML page with all sections formatted nicely for viewing in a browser.
-
 ***
 
 ## Workflow Examples
@@ -353,24 +302,6 @@ git commit -m "chore: release v1.5.0"
 git tag v1.5.0
 ```
 
-
-### Multiple Format Generation
-
-```bash
-# Generate markdown
-mobilectl changelog generate --format markdown
-
-# Generate HTML for web
-mobilectl changelog generate --format html
-
-# Generate JSON for API
-mobilectl changelog generate --format json
-
-# View all files
-ls -la CHANGELOG.*
-```
-
-
 ### Append vs Overwrite
 
 ```bash
@@ -388,11 +319,9 @@ mobilectl changelog generate --overwrite
 ### Preview Before Committing
 
 ```bash
-# Preview markdown changes
-mobilectl changelog generate --format markdown --dry-run
+# Preview changes
+mobilectl changelog generate --dry-run
 
-# Preview HTML changes
-mobilectl changelog generate --format html --dry-run --verbose
 ```
 
 
@@ -475,17 +404,6 @@ git push origin --tags
 ```
 
 
-### Multiple Output Formats
-
-Generate all formats for different audiences:
-
-```bash
-mobilectl changelog generate --format markdown  # For GitHub/GitLab
-mobilectl changelog generate --format html      # For website
-mobilectl changelog generate --format json      # For API
-```
-
-
 ***
 
 ## Troubleshooting
@@ -560,7 +478,7 @@ set -e
 
 VERSION=$1
 mobilectl version bump major
-mobilectl changelog generate --format markdown --format html
+mobilectl changelog generate
 git add -A
 git commit -m "release: v$VERSION"
 git tag "v$VERSION"

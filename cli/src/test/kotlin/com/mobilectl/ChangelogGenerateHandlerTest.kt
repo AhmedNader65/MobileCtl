@@ -35,7 +35,6 @@ class ChangelogGenerateHandlerTest {
                 """
                 changelog:
                   enabled: true
-                  format: markdown
                   output_file: CHANGELOG.md
             """.trimIndent()
             )

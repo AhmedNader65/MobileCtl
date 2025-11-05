@@ -69,39 +69,13 @@ class ChangelogOrchestrator(
             val contributors = extractContributors(commits)
             val stats = generateStats(commits)
 
-            val newContent = when (config.format) {
-                "markdown" -> generateMarkdown(
-                    commitsByType,
-                    breakingCommits,
-                    contributors,
-                    stats,
-                    actualToTag
-                )
-
-                "html" -> generateHtml(
-                    commitsByType,
-                    breakingCommits,
-                    contributors,
-                    stats,
-                    actualToTag
-                )
-
-                "json" -> generateJson(
-                    commitsByType,
-                    breakingCommits,
-                    contributors,
-                    stats,
-                    actualToTag
-                )
-
-                else -> generateMarkdown(
-                    commitsByType,
-                    breakingCommits,
-                    contributors,
-                    stats,
-                    actualToTag
-                )
-            }
+            val newContent = generateMarkdown(
+                commitsByType,
+                breakingCommits,
+                contributors,
+                stats,
+                actualToTag
+            )
 
             if (dryRun) {
                 return GenerateResult(
@@ -114,7 +88,7 @@ class ChangelogOrchestrator(
             val existingContent = writer.read(config.outputFile)
             val finalContent =
                 if (append && existingContent != null && existingContent.isNotEmpty()) {
-                    appendChangelog(newContent, existingContent, config.format)
+                    appendChangelog(newContent, existingContent)
                 } else {
                     newContent
                 }
@@ -265,78 +239,6 @@ class ChangelogOrchestrator(
         return sb.toString()
     }
 
-    private fun generateHtml(
-        commitsByType: Map<CommitType, List<GitCommit>>,
-        breakingCommits: List<GitCommit>,
-        contributors: Map<String, Int>,
-        stats: Stats,
-        version: String? = null
-    ): String {
-        val markdown =
-            generateMarkdown(commitsByType, breakingCommits, contributors, stats, version)
-        return markdownToHtml(markdown)
-    }
-
-    private fun generateJson(
-        commitsByType: Map<CommitType, List<GitCommit>>,
-        breakingCommits: List<GitCommit>,
-        contributors: Map<String, Int>,
-        stats: Stats,
-        version: String? = null
-    ): String {
-        val versionStr = version?.removePrefix("v") ?: "unreleased"
-        val dateStr = getVersionDate(version) ?: ""
-
-        // Build contributors JSON manually
-        val contributorsJson = contributors.entries
-            .joinToString(", ") { (author, count) ->
-                "\"${escapeJson(author)}\": $count"
-            }
-
-        val breakingJson = breakingCommits
-            .joinToString(", ") { commit ->
-                """{"message": "${escapeJson(commit.message)}", "hash": "${commit.shortHash}"} """
-            }
-
-        val featuresJson = commitsByType.values.flatten()
-            .filter { it.type == "feat" && !it.breaking }
-            .take(20)
-            .joinToString(", ") { commit ->
-                """{"message": "${escapeJson(commit.message)}", "hash": "${commit.shortHash}"}"""
-            }
-
-        val fixesJson = commitsByType.values.flatten()
-            .filter { it.type == "fix" && !it.breaking }
-            .take(20)
-            .joinToString(", ") { commit ->
-                """{"message": "${escapeJson(commit.message)}", "hash": "${commit.shortHash}"}"""
-            }
-
-        return """{
-                      "version": "$versionStr",
-                      "date": "$dateStr",
-                      "stats": {
-                        "totalCommits": ${stats.totalCommits},
-                        "contributors": ${stats.contributors.size},
-                        "breakingChanges": ${stats.breakingChanges}
-                      },
-                      "sections": {
-                        "breaking": [$breakingJson],
-                        "features": [$featuresJson],
-                        "fixes": [$fixesJson]
-                      },
-                      "contributors": {
-                        $contributorsJson
-                      }
-                    }"""
-    }
-
-    private fun escapeJson(text: String): String {
-        return text.replace("\"", "\\\"")
-            .replace("\n", "\\n")
-            .replace("\r", "\\r")
-    }
-
     private fun getVersionDate(version: String?): String? {
         if (version == null) return null
         return try {
@@ -346,33 +248,11 @@ class ChangelogOrchestrator(
         }
     }
 
-    private fun markdownToHtml(markdown: String): String {
-        // For now, return markdown in pre tag
-        // TODO: Integrate flexmark library for proper conversion
-        return """
-        <!DOCTYPE html>
-        <html>
-        <head><title>Changelog</title></head>
-        <body>
-        <pre style="font-family: monospace; white-space: pre-wrap;">
-        $markdown
-        </pre>
-        </body>
-        </html>
-    """.trimIndent()
-    }
-
     private fun appendChangelog(
         newContent: String,
         existingContent: String,
-        format: String
     ): String {
-        return when (format) {
-            "markdown" -> appendMarkdown(newContent, existingContent)
-            "html" -> appendHtml(newContent, existingContent)
-            "json" -> appendJson(newContent, existingContent)
-            else -> appendMarkdown(newContent, existingContent)
-        }
+        return appendMarkdown(newContent, existingContent)
     }
 
     private fun appendMarkdown(newContent: String, existingContent: String): String {
@@ -390,50 +270,6 @@ ${versionLines.joinToString("\n")}
 
 ${existingLines.joinToString("\n").trim()}
 """.trimIndent()
-    }
-
-    private fun appendHtml(newContent: String, existingContent: String): String {
-        // Extract body content from new HTML
-        val newBody = extractHtmlBody(newContent)
-        val existingBody = extractHtmlBody(existingContent)
-
-        return """<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Changelog</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 2rem; }
-        h1 { color: #222; border-bottom: 3px solid #007bff; }
-        h2 { color: #555; margin-top: 2rem; }
-        h3 { color: #777; }
-        ul { list-style: none; margin-left: 1rem; }
-        li { margin: 0.5rem 0; }
-        a { color: #007bff; }
-    </style>
-</head>
-<body>
-    <h1>Changelog</h1>
-    $newBody
-    $existingBody
-</body>
-</html>"""
-    }
-
-    private fun appendJson(newContent: String, existingContent: String): String {
-        // Parse both JSONs and merge
-        return newContent // TODO - implement proper JSON merging
-    }
-
-    private fun extractHtmlBody(html: String): String {
-        val bodyStart = html.indexOf("<h1>")
-        val bodyEnd = html.lastIndexOf("</body>")
-        return if (bodyStart >= 0 && bodyEnd > bodyStart) {
-            html.substring(bodyStart, bodyEnd)
-        } else {
-            html
-        }
     }
 }
 
