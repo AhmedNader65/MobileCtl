@@ -14,13 +14,19 @@ object ArtifactDetector {
         val commonPaths = listOf(
             // Gradle release builds
             "app/release/app-release.apk",
-            "build/outputs/apk/release/app-release.apk",
-            "build/outputs/apk/release/app-release-unsigned.apk",
+            "app/build/outputs/apk/release/app-release.apk",
+            "app/build/outputs/apk/release/app-release-unsigned.apk",
+            "android/release/app-release.apk",
+            "android/build/outputs/apk/release/app-release.apk",
+            "android/build/outputs/apk/release/app-release-unsigned.apk",
 
 
             // Flavor-specific builds
-            "build/outputs/apk/staging/release/app-staging-release.apk",
-            "build/outputs/apk/production/release/app-production-release.apk",
+            "app/build/outputs/apk/staging/release/app-staging-release.apk",
+            "app/build/outputs/apk/production/release/app-production-release.apk",
+
+            "android/build/outputs/apk/staging/release/app-staging-release.apk",
+            "android/build/outputs/apk/production/release/app-production-release.apk",
 
             // Root level
             "app-release.apk",

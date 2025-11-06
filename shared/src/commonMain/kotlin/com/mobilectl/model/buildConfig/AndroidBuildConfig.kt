@@ -7,14 +7,14 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class AndroidBuildConfig(
-    val enabled: Boolean? = null,
-    val projectPath: String = ".",
+    val enabled: Boolean = true,
     var defaultFlavor: String = "",
     var defaultType: String = "release",
-    val gradleTask: String = "assemble${if (defaultFlavor.isNotEmpty()) defaultFlavor.capitalize() else ""}${
-        defaultType.capitalize()
-    }",
-    val gradleProperties: Map<String, String> = emptyMap(),
-    val keystore: KeystoreConfig? = null,
-    val output: OutputConfig = OutputConfig()
+
+    val keyStore: String = "keystore.jks",  // Path to keystore
+    val keyAlias: String = "",               // Alias in keystore
+    val keyPassword: String = "",            // Key password (from env)
+    val storePassword: String = "",          // Keystore password (from env)
+
+    val useEnvForPasswords: Boolean = true
 )

@@ -19,11 +19,15 @@ data class BuildOutput(
     val outputPath: String? = null,
     val warnings: List<String> = emptyList(),
     val error: String? = null,
+    val isSigned: Boolean = false,
     val durationMs: Long = 0
 ) {
     val message: String
         get() = when {
-            success -> "✅ Build successful"
+            success -> {
+                if(isSigned) "✅ Build successful and signed: $outputPath"
+                    else "✅ Build successful (unsigned): $outputPath"
+            }
             error != null -> "❌ Build failed: $error"
             else -> "❌ Build failed"
         }

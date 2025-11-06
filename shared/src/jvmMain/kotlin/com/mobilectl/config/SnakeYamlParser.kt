@@ -91,19 +91,34 @@ class SnakeYamlConfigParser : ConfigParser {
     }
 
     private fun convertToAndroidConfig(data: Map<String, Any?>): AndroidBuildConfig {
+        if (data == null) return AndroidBuildConfig()
+
         return AndroidBuildConfig(
-            enabled = data["enabled"] as? Boolean,
-            projectPath = data["project_path"] as? String ?: ".",
-            defaultFlavor = data["default_flavor"] as? String ?: "",
-            defaultType = data["default_type"] as? String ?: "release",
-            gradleProperties = (data["gradle_properties"] as? Map<*, *>)?.mapKeys { it.key.toString() }
-                ?.mapValues { it.value.toString() } ?: emptyMap(),
-            keystore = convertToKeystoreConfig(data["keystore"] as? Map<String, Any?>),
-            output = convertToOutputConfig(
-                data["output"] as? Map<String, Any?> ?: emptyMap(),
-                "apk",
-                "app-release.apk"
-            )
+            enabled = (data["enabled"] as? Boolean) ?: true,
+            defaultFlavor = (data["default_flavor"] as? String)
+                ?: (data["defaultFlavor"] as? String)
+                ?: "release",
+            defaultType = (data["default_type"] as? String)
+                ?: (data["defaultType"] as? String)
+                ?: "release",
+
+            // Signing config
+            keyStore = (data["key_store"] as? String)
+                ?: (data["keyStore"] as? String)
+                ?: System.getenv("MOBILECTL_KEYSTORE") ?: "keystore.jks",
+            keyAlias = (data["key_alias"] as? String)
+                ?: (data["keyAlias"] as? String)
+                ?: System.getenv("MOBILECTL_KEY_ALIAS") ?: "",
+            keyPassword = (data["key_password"] as? String)
+                ?: (data["keyPassword"] as? String)
+                ?: System.getenv("MOBILECTL_KEY_PASSWORD") ?: "",
+            storePassword = (data["store_password"] as? String)
+                ?: (data["storePassword"] as? String)
+                ?: System.getenv("MOBILECTL_STORE_PASSWORD") ?: "",
+
+            useEnvForPasswords = (data["use_env_for_passwords"] as? Boolean)
+                ?: (data["useEnvForPasswords"] as? Boolean)
+                ?: true
         )
     }
 

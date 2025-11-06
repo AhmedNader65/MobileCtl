@@ -51,23 +51,29 @@ class DeployHandler(
                 return
             }
 
+            // 1. Load config
             val baseConfig = loadConfigOrUseDefaults()
             var config = applyCommandLineOverrides(baseConfig)
 
+            // 2. Interactive mode
             if (interactive) {
                 config = runInteractiveWizard(config) ?: return
             }
 
+            // 3. Parse platforms
             val targetPlatforms = parsePlatforms(platform, config)
             if (targetPlatforms == null) {
                 out.println("❌ Could not determine platforms")
                 return
             }
 
+            // 4. Detect environment
             val actualEnvironment = environment ?: detectEnvironment()
 
+            // 5. Show summary
             printSummary(targetPlatforms, actualEnvironment)
 
+            // 6. Ask for confirmation
             if (!confirm && !dryRun && !interactive) {
                 if (!askForConfirmation()) {
                     out.println("⏭️  Deployment cancelled")
@@ -75,13 +81,14 @@ class DeployHandler(
                 }
             }
 
+            // 7. Dry-run mode
             if (dryRun) {
                 out.println("📋 DRY-RUN mode - nothing will be deployed")
                 showDryRunDetails(config, targetPlatforms, actualEnvironment)
                 return
             }
 
-            // Build if needed (based on source changes)
+            // 8. Build if needed
             if (!skipBuild) {
                 val needsBuild = checkIfBuildNeeded(config, targetPlatforms)
                 if (needsBuild) {
@@ -93,12 +100,16 @@ class DeployHandler(
                         out.println("❌ Build failed!")
                         return
                     }
+
+                    // Check signing requirements
+                    validateSigningRequirements(config, buildResult)
                 } else {
                     out.println()
                     out.println("✅ Artifacts up-to-date (no source changes detected)")
                 }
             }
 
+            // 9. Deploy
             executeDeploy(config, targetPlatforms, actualEnvironment)
 
         } catch (e: Exception) {
@@ -106,6 +117,54 @@ class DeployHandler(
             if (verbose) {
                 e.printStackTrace()
             }
+        }
+    }
+
+    /**
+     * Validate signing requirements before deployment
+     */
+    private fun validateSigningRequirements(config: Config, buildResult: BuildResult) {
+        val androidConfig = config.deploy?.android ?: return
+        val androidBuild = buildResult.outputs.find { it.platform == Platform.ANDROID } ?: return
+
+        // Check if unsigned APK being deployed to Play Console
+        if (!androidBuild.isSigned && androidConfig.playConsole.enabled) {
+            out.println()
+            out.println("═══════════════════════════════════════════════════")
+            out.println("❌ SIGNING REQUIRED FOR PLAY CONSOLE")
+            out.println("═══════════════════════════════════════════════════")
+            out.println()
+            out.println("Google Play Console requires signed APKs.")
+            out.println("Unsigned APKs can only be deployed to Firebase.")
+            out.println()
+
+            out.println("💡 Options:")
+            out.println("   1. Set up keystore and rebuild")
+            out.println("   2. Disable Play Console in mobilectl.yaml")
+            out.println("   3. Continue with Firebase only (press Enter)")
+            out.println()
+
+            out.print("? Proceed with unsigned APK? (y/n): ")
+            out.flush()
+
+            val input = readLine()?.trim()?.lowercase()
+            if (input != "y" && input != "yes") {
+                out.println("⏭️  Deployment cancelled")
+                throw Exception("Signing required for Play Console deployment")
+            }
+
+            // Disable Play Console
+            out.println("⚠️  Disabling Play Console deployment")
+        }
+
+        // Show warnings
+        if (androidBuild.warnings.isNotEmpty()) {
+            out.println()
+            out.println("⚠️  Build Warnings:")
+            androidBuild.warnings.forEach { warning ->
+                out.println("   • $warning")
+            }
+            out.println()
         }
     }
 
@@ -251,57 +310,6 @@ class DeployHandler(
         }
     }
 
-
-    /**
-     * Check if any source files are newer than artifact
-     * Supports Android and iOS
-     */
-    private fun hasRecentSourceChanges(lastArtifactTime: Long): Boolean {
-        val sourcePatterns = listOf(
-            // Android
-            "src/**/*.kt",
-            "src/**/*.java",
-            "app/**/*.kt",
-            "app/**/*.java",
-            "build.gradle.kts",
-            "build.gradle",
-            "settings.gradle.kts",
-            "gradle.properties",
-            "app/build.gradle.kts",
-            "app/build.gradle",
-
-            // iOS
-            "ios/**/*.swift",
-            "ios/**/*.h",
-            "ios/**/*.m",
-            "ios/**/*.xcconfig",
-            "ios/**/*.pbxproj",
-            "Podfile",
-            "Podfile.lock"
-        )
-
-        val baseDir = File(workingPath)
-
-        return sourcePatterns.any { pattern ->
-            val dir = if (pattern.contains("**")) {
-                baseDir.resolve(pattern.substringBefore("**"))
-            } else {
-                baseDir.resolve(pattern)
-            }
-
-            if (dir.isDirectory) {
-                dir.walk()
-                    .filter { it.isFile }
-                    .any { it.lastModified() > lastArtifactTime }
-            } else if (dir.isFile) {
-                dir.lastModified() > lastArtifactTime
-            } else {
-                false
-            }
-        }
-    }
-
-
     /**
      * Build using existing BuildOrchestrator
      */
@@ -345,9 +353,8 @@ class DeployHandler(
         }
     }
 
-
     /**
-     * Load config from file or create smart defaults
+     * Load config or create defaults
      */
     private suspend fun loadConfigOrUseDefaults(): Config {
         val configFile = File(workingPath, "mobilectl.yaml")
@@ -357,87 +364,48 @@ class DeployHandler(
                 val fileUtil = createFileUtil()
                 val detector = createProjectDetector()
                 val configLoader = ConfigLoader(fileUtil, detector)
-                val configResult = configLoader.loadConfig(configFile.absolutePath)
-
-                configResult.getOrNull() ?: createSmartDefaults()
+                configLoader.loadConfig(configFile.absolutePath).getOrNull() ?: createSmartDefaults()
             } catch (e: Exception) {
-                if (verbose) {
-                    out.println("⚠️  Failed to load config: ${e.message}")
-                }
+                if (verbose) out.println("⚠️  Failed to load config: ${e.message}")
                 createSmartDefaults()
             }
         } else {
-            if (verbose) {
-                out.println("ℹ️  No config file found, using auto-detected defaults")
-            }
+            if (verbose) out.println("ℹ️  No config file found, using auto-detected defaults")
             createSmartDefaults()
         }
     }
 
     /**
-     * Apply command-line overrides to config
-     * PRIORITY: Command-line args > Config file > Defaults
+     * Apply command-line overrides
      */
     private fun applyCommandLineOverrides(config: Config): Config {
-        var updatedConfig = config
+        var updated = config
 
-        // Override release notes
-        if (releaseNotes != null) {
-            updatedConfig = updatedConfig.copy(
-                deploy = updatedConfig.deploy.copy(
-                    android = updatedConfig.deploy.android?.copy(
-                        firebase = updatedConfig.deploy.android?.firebase?.copy(releaseNotes = releaseNotes) ?: FirebaseAndroidDestination(releaseNotes = releaseNotes)
-                    ),
-                    ios = updatedConfig.deploy.ios
-                )
-            )
-
-            // Apply to both platforms
-            updatedConfig.deploy.android?.firebase?.let { firebase ->
-                updatedConfig = updatedConfig.copy(
-                    deploy = updatedConfig.deploy.copy(
-                        android = updatedConfig.deploy.android?.copy(
-                            firebase = firebase
-                        )
-                    )
-                )
-            }
+        // Override destination
+        if (destination != null) {
+            updated = applyDestinationOverride(updated, destination)
         }
 
         // Override test groups
         if (testGroups != null) {
             val groups = testGroups.split(",").map { it.trim() }
-            updatedConfig = updatedConfig.copy(
-                deploy = updatedConfig.deploy.copy(
-                    android = updatedConfig.deploy.android?.copy(
-                        firebase = updatedConfig.deploy.android?.firebase?.copy(
-                            testGroups = groups
-                        ) ?: FirebaseAndroidDestination()
-                    )
-                )
-            )
+            updated.deploy.android?.firebase?.testGroups = groups
         }
 
-        // Override destination (enable/disable specific destinations)
-        if (destination != null) {
-            updatedConfig = applyDestinationOverride(updatedConfig, destination)
-        }
-
-        return updatedConfig
+        return updated
     }
 
     /**
-     * Apply destination override (enable only specified destination)
+     * Apply destination override
      */
     private fun applyDestinationOverride(config: Config, dest: String): Config {
         val normalizedDest = dest.lowercase()
+        var updated = config
 
-        var updatedConfig = config
-
-        // Android destinations
-        updatedConfig.deploy.android?.let { android ->
-            updatedConfig = updatedConfig.copy(
-                deploy = updatedConfig.deploy.copy(
+        // Android
+        updated.deploy.android?.let { android ->
+            updated = updated.copy(
+                deploy = updated.deploy.copy(
                     android = android.copy(
                         firebase = android.firebase.copy(enabled = normalizedDest == "firebase"),
                         playConsole = android.playConsole.copy(enabled = normalizedDest == "play-console"),
@@ -447,10 +415,10 @@ class DeployHandler(
             )
         }
 
-        // iOS destinations
-        updatedConfig.deploy.ios?.let { ios ->
-            updatedConfig = updatedConfig.copy(
-                deploy = updatedConfig.deploy.copy(
+        // iOS
+        updated.deploy.ios?.let { ios ->
+            updated = updated.copy(
+                deploy = updated.deploy.copy(
                     ios = ios.copy(
                         testflight = ios.testflight.copy(enabled = normalizedDest == "testflight"),
                         appStore = ios.appStore.copy(enabled = normalizedDest == "app-store")
@@ -459,9 +427,8 @@ class DeployHandler(
             )
         }
 
-        return updatedConfig
+        return updated
     }
-
     private fun parsePlatforms(platformArg: String?, config: Config): Set<Platform>? {
         return when {
             platformArg != null -> {
