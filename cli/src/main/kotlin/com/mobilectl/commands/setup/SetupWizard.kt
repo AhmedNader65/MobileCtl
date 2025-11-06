@@ -190,7 +190,7 @@ class SetupWizard(
             val additionalFlavors = mutableListOf<String>()
             if (promptYesNo("Add more?", default = false)) {
                 terminal.println("Enter flavor names (comma-separated):")
-                val input = terminal.readLineOrNull()?.trim() ?: ""
+                val input = readLine()?.trim() ?: ""
                 additionalFlavors.addAll(input.split(",").map { it.trim() }.filter { it.isNotEmpty() })
             }
 
@@ -201,7 +201,7 @@ class SetupWizard(
 
             if (promptYesNo("Add flavors?", default = false)) {
                 terminal.println("Enter flavor names (comma-separated):")
-                val input = terminal.readLineOrNull()?.trim() ?: ""
+                val input = readLine()?.trim() ?: ""
                 input.split(",").map { it.trim() }.filter { it.isNotEmpty() }
             } else {
                 emptyList()
@@ -326,7 +326,7 @@ class SetupWizard(
                 ?: "app/google-services.json"
 
             terminal.println("Test groups (comma-separated):")
-            val testGroups = terminal.readLineOrNull()?.trim()
+            val testGroups = readLine()?.trim()
                 ?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }
                 ?: listOf("qa-team")
 
@@ -351,17 +351,11 @@ class SetupWizard(
 
         val playData = if (playEnabled) {
             val serviceAccount = playCredentials ?: promptRequired("Service account JSON path")
-            val releaseTrack = promptChoice(
-                "Release track",
-                listOf("internal", "alpha", "beta", "production"),
-                default = "internal"
-            )
 
             PlayConsoleDestinationData(
                 enabled = true,
                 serviceAccount = serviceAccount,
-                packageName = wizardState.projectInfo.packageName,
-                track = releaseTrack
+                packageName = wizardState.projectInfo.packageName
             )
         } else null
 
@@ -742,7 +736,8 @@ class SetupWizard(
                 version = projectInfo.version
             ),
             build = BuildConfig(
-                android = buildConfig.android?.let { android ->
+                android = if (buildConfig.android != null) {
+                    val android = buildConfig.android!!
                     AndroidBuildConfig(
                         enabled = android.enabled,
                         defaultFlavor = android.defaultFlavor,
@@ -754,8 +749,9 @@ class SetupWizard(
                         storePassword = if (android.useEnvForPasswords) "\${ANDROID_STORE_PASSWORD}" else "",
                         useEnvForPasswords = android.useEnvForPasswords
                     )
-                },
-                ios = buildConfig.ios?.let { ios ->
+                } else null,
+                ios = if (buildConfig.ios != null) {
+                    val ios = buildConfig.ios!!
                     IosBuildConfig(
                         enabled = ios.enabled,
                         projectPath = ios.projectPath,
@@ -764,7 +760,7 @@ class SetupWizard(
                         codeSignIdentity = ios.codeSignIdentity,
                         provisioningProfile = ios.provisioningProfile
                     )
-                }
+                } else null
             ),
             version = VersionConfig(
                 enabled = versionConfig.enabled,
@@ -785,54 +781,60 @@ class SetupWizard(
             ),
             deploy = DeployConfig(
                 enabled = true,
-                android = deployConfig.android?.let { android ->
+                android = if (deployConfig.android != null) {
+                    val android = deployConfig.android!!
                     AndroidDeployConfig(
                         artifactPath = "build/outputs/apk/\${flavor}/release/app-\${flavor}-release.apk",
-                        firebase = android.firebase?.let { firebase ->
+                        firebase = if (android.firebase != null) {
+                            val firebase = android.firebase!!
                             FirebaseAndroidDestination(
                                 enabled = firebase.enabled,
                                 serviceAccount = firebase.serviceAccount,
                                 googleServices = firebase.googleServices,
                                 testGroups = firebase.testGroups
                             )
-                        },
-                        playConsole = android.playConsole?.let { play ->
+                        } else FirebaseAndroidDestination(enabled = false),
+                        playConsole = if (android.playConsole != null) {
+                            val play = android.playConsole!!
                             PlayConsoleAndroidDestination(
                                 enabled = play.enabled,
                                 serviceAccount = play.serviceAccount,
-                                packageName = play.packageName,
-                                track = play.track
+                                packageName = play.packageName
                             )
-                        },
-                        local = android.local?.let { local ->
+                        } else PlayConsoleAndroidDestination(enabled = false),
+                        local = if (android.local != null) {
+                            val local = android.local!!
                             LocalAndroidDestination(
                                 enabled = local.enabled,
                                 outputDir = local.outputDir
                             )
-                        }
+                        } else LocalAndroidDestination(enabled = false)
                     )
-                },
-                ios = deployConfig.ios?.let { ios ->
+                } else null,
+                ios = if (deployConfig.ios != null) {
+                    val ios = deployConfig.ios!!
                     IosDeployConfig(
                         artifactPath = "build/outputs/ipa/\${scheme}.ipa",
-                        testflight = ios.testFlight?.let { tf ->
+                        testflight = if (ios.testFlight != null) {
+                            val tf = ios.testFlight!!
                             TestFlightDestination(
                                 enabled = tf.enabled,
                                 apiKeyPath = tf.apiKeyPath,
                                 bundleId = tf.bundleId,
                                 teamId = tf.teamId
                             )
-                        },
-                        appStore = ios.appStore?.let { store ->
+                        } else TestFlightDestination(enabled = false),
+                        appStore = if (ios.appStore != null) {
+                            val store = ios.appStore!!
                             AppStoreDestination(
                                 enabled = store.enabled,
                                 apiKeyPath = store.apiKeyPath,
                                 bundleId = store.bundleId,
                                 teamId = store.teamId
                             )
-                        }
+                        } else AppStoreDestination(enabled = false)
                     )
-                },
+                } else null,
                 flavorGroups = flavorGroups.associate { group ->
                     group.name to FlavorGroup(
                         name = group.name,
@@ -842,9 +844,7 @@ class SetupWizard(
                 },
                 defaultGroup = flavorGroups.firstOrNull()?.name
             ),
-            notify = NotifyConfig(
-                enabled = false
-            ),
+            notify = NotifyConfig(),
             report = ReportConfig(
                 enabled = false
             ),
@@ -894,7 +894,7 @@ class SetupWizard(
         terminal.println("Let's set up your project for mobile deployment.")
         terminal.println()
         terminal.print("Press Enter to continue...")
-        terminal.readLineOrNull()
+        readLine()
     }
 
     private fun promptProjectType(): ProjectType {
@@ -904,7 +904,7 @@ class SetupWizard(
         terminal.println("[4] iOS (native)")
         terminal.print("> ")
 
-        return when (terminal.readLineOrNull()?.trim()) {
+        return when (readLine()?.trim()) {
             "1" -> ProjectType.ANDROID_NATIVE
             "2" -> ProjectType.FLUTTER
             "3" -> ProjectType.REACT_NATIVE
@@ -916,7 +916,7 @@ class SetupWizard(
     private fun promptRequired(prompt: String): String {
         while (true) {
             terminal.print("$prompt: ")
-            val input = terminal.readLineOrNull()?.trim()
+            val input = readLine()?.trim()
             if (!input.isNullOrBlank()) {
                 return input
             }
@@ -926,14 +926,14 @@ class SetupWizard(
 
     private fun promptWithDefault(prompt: String, default: String): String {
         terminal.print("$prompt [$default]: ")
-        val input = terminal.readLineOrNull()?.trim()
+        val input = readLine()?.trim()
         return if (input.isNullOrBlank()) default else input
     }
 
     private fun promptYesNo(prompt: String, default: Boolean = true): Boolean {
         val hint = if (default) "(Y/n)" else "(y/N)"
         terminal.print("$prompt $hint: ")
-        return when (terminal.readLineOrNull()?.trim()?.lowercase()) {
+        return when (readLine()?.trim()?.lowercase()) {
             "y", "yes" -> true
             "n", "no" -> false
             "" -> default
@@ -947,7 +947,7 @@ class SetupWizard(
         }
         terminal.print("$prompt > ")
 
-        val input = terminal.readLineOrNull()?.trim()?.toIntOrNull()
+        val input = readLine()?.trim()?.toIntOrNull()
         return if (input != null && input in 1..choices.size) {
             choices[input - 1]
         } else {
@@ -1045,8 +1045,7 @@ data class FirebaseDestinationData(
 data class PlayConsoleDestinationData(
     val enabled: Boolean,
     val serviceAccount: String,
-    val packageName: String,
-    val track: String
+    val packageName: String
 )
 
 data class LocalDestinationData(

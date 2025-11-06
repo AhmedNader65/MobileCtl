@@ -76,14 +76,14 @@ class SetupHandler(
         terminal.println("  3. Specify different output path")
         terminal.print("\nChoice [1/2/3]: ")
 
-        return when (terminal.readLineOrNull()?.trim()) {
+        return when (readLine()?.trim()) {
             "1" -> {
                 createBackup(configFile)
                 false
             }
             "3" -> {
                 terminal.print("Enter new path: ")
-                val newPath = terminal.readLineOrNull()?.trim()
+                val newPath = readLine()?.trim()
                 if (newPath.isNullOrBlank()) {
                     PremiumLogger.error("Invalid path")
                     true

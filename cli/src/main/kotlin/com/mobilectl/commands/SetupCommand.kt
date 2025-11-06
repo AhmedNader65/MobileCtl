@@ -21,26 +21,7 @@ import com.mobilectl.commands.setup.SetupHandler
  *   • Creates setup documentation
  */
 class SetupCommand : CliktCommand(
-    name = "setup",
-    help = """
-        🚀 Comprehensive setup wizard for mobilectl
-
-        Guides you through complete project configuration and generates:
-        • mobileops.yaml (complete config file)
-        • .github/workflows/mobilectl-deploy.yml (optional)
-        • .gitlab-ci.yml (optional)
-        • docs/SETUP.md (setup summary)
-
-        The wizard covers:
-        1. Project information (name, package, type)
-        2. Build configuration (flavors, signing)
-        3. Deployment destinations (Firebase, Play Console, TestFlight)
-        4. Version management (auto-increment, files)
-        5. Changelog generation
-        6. Deployment groups
-        7. CI/CD setup
-        8. Review and confirmation
-    """.trimIndent()
+    name = "setup"
 ) {
     private val force by option(
         "--force", "-f",
