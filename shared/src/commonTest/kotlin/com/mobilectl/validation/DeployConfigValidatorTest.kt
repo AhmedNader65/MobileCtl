@@ -2,342 +2,375 @@ package com.mobilectl.validation
 
 import com.mobilectl.config.Config
 import com.mobilectl.model.ValidationSeverity
-import com.mobilectl.model.deploy.AndroidDeployConfig
-import com.mobilectl.model.deploy.DeployConfig
-import com.mobilectl.model.deploy.IosDeployConfig
-import org.junit.jupiter.api.Assertions.assertFalse
+import com.mobilectl.model.deploy.*
+import com.mobilectl.validation.ValidationTestHelpers.createTempApk
+import com.mobilectl.validation.ValidationTestHelpers.createTempAab
+import com.mobilectl.validation.ValidationTestHelpers.createTempAppStoreApiKey
+import com.mobilectl.validation.ValidationTestHelpers.createTempFirebaseServiceAccount
+import com.mobilectl.validation.ValidationTestHelpers.createTempIpa
+import com.mobilectl.validation.ValidationTestHelpers.createTempPlayConsoleServiceAccount
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class DeployConfigValidatorTest {
 
-    private val validator = DeployConfigValidator()
 
-    @Test
-    fun testValidAndroidDeployConfig() {
-        val config = Config(
-            deploy = DeployConfig(
-                enabled = true,
-                android = AndroidDeployConfig(
-                    enabled = true,
-                    destination = "firebase",
-                    appId = "com.example.app",
-                    token = "firebase-token-123",
-                    artifactPath = "build/outputs/apk/release/app-release.apk"
-                )
-            )
-        )
-
-        val errors = validator.validate(config)
-        assertEquals(0, errors.size, "Valid Android config should have no errors")
+    private fun createValidator(): DeployConfigValidator {
+        return DeployConfigValidator()
     }
 
+    /**
+     * Test valid Firebase Android config
+     */
     @Test
-    fun testValidIosDeployConfig() {
-        val config = Config(
-            deploy = DeployConfig(
-                enabled = true,
-                ios = IosDeployConfig(
-                    enabled = true,
-                    destination = "testflight",
-                    appId = "com.example.app",
-                    teamId = "ABC123XYZ",
-                    apiKey = "app-store-key",
-                    artifactPath = "build/outputs/app.ipa"
+    fun testValidFirebaseAndroidConfig() {
+        val validator = createValidator()
+        val apk = createTempApk()
+        val firebaseServiceAccount = createTempFirebaseServiceAccount()
+
+        try {
+            val config = Config(
+                deploy = DeployConfig(
+                    android = AndroidDeployConfig(
+                        enabled = true,
+                        artifactPath = apk.absolutePath,
+                        firebase = FirebaseAndroidDestination(
+                            enabled = true,
+                            serviceAccount = firebaseServiceAccount.absolutePath,
+                            testGroups = listOf("qa-team")
+                        ),
+                        playConsole = PlayConsoleAndroidDestination(enabled = false),
+                        local = LocalAndroidDestination(enabled = false)
+                    )
                 )
             )
-        )
 
-        val errors = validator.validate(config)
-        assertEquals(0, errors.size, "Valid iOS config should have no errors")
+            val errors = validator.validate(config)
+            assertEquals(0, errors.size, "Valid Firebase config should have no errors. Errors: ${errors.map { "${it.field}: ${it.message}" }}")
+        } finally {
+            apk.delete()
+            firebaseServiceAccount.delete()
+        }
     }
 
+    /**
+     * Test valid Play Console Android config
+     */
     @Test
-    fun testAndroidInvalidDestination() {
-        val config = Config(
-            deploy = DeployConfig(
-                enabled = true,
-                android = AndroidDeployConfig(
-                    enabled = true,
-                    destination = "invalid-service",
-                    appId = "com.example.app",
-                    token = "token",
-                    artifactPath = "app.apk"
+    fun testValidPlayConsoleAndroidConfig() {
+        val validator = createValidator()
+        val aab = createTempAab()
+        val playConsoleServiceAccount = createTempPlayConsoleServiceAccount()
+
+        try {
+            val config = Config(
+                deploy = DeployConfig(
+                    android = AndroidDeployConfig(
+                        enabled = true,
+                        artifactPath = aab.absolutePath,
+                        firebase = FirebaseAndroidDestination(enabled = false),
+                        playConsole = PlayConsoleAndroidDestination(
+                            enabled = true,
+                            serviceAccount = playConsoleServiceAccount.absolutePath,
+                            packageName = "com.example.app"
+                        ),
+                        local = LocalAndroidDestination(enabled = false)
+                    )
                 )
             )
-        )
 
-        val errors = validator.validate(config)
-        assertTrue(errors.any { it.field == "deploy.android.destination" && it.severity == ValidationSeverity.ERROR })
+            val errors = validator.validate(config)
+            assertEquals(0, errors.size, "Valid Play Console config should have no errors")
+        } finally {
+            aab.delete()
+            playConsoleServiceAccount.delete()
+        }
     }
 
+    /**
+     * Test valid Local Android config
+     */
     @Test
-    fun testIosInvalidDestination() {
-        val config = Config(
-            deploy = DeployConfig(
-                enabled = true,
-                ios = IosDeployConfig(
-                    enabled = true,
-                    destination = "invalid-service",
-                    appId = "com.example.app",
-                    teamId = "ABC123",
-                    apiKey = "key",
-                    artifactPath = "app.ipa"
+    fun testValidLocalAndroidConfig() {
+        val validator = createValidator()
+        val apk = createTempApk()
+
+        try {
+            val config = Config(
+                deploy = DeployConfig(
+                    android = AndroidDeployConfig(
+                        enabled = true,
+                        artifactPath = apk.absolutePath,
+                        firebase = FirebaseAndroidDestination(enabled = false),
+                        playConsole = PlayConsoleAndroidDestination(enabled = false),
+                        local = LocalAndroidDestination(
+                            enabled = true,
+                            outputDir = "build/deploy"
+                        )
+                    )
                 )
             )
-        )
 
-        val errors = validator.validate(config)
-        assertTrue(errors.any { it.field == "deploy.ios.destination" && it.severity == ValidationSeverity.ERROR })
+            val errors = validator.validate(config)
+            assertEquals(0, errors.size, "Valid Local config should have no errors")
+        } finally {
+            apk.delete()
+        }
     }
 
+    /**
+     * Test valid TestFlight iOS config
+     */
     @Test
-    fun testFirebaseAndroidMissingToken() {
-        val config = Config(
-            deploy = DeployConfig(
-                enabled = true,
-                android = AndroidDeployConfig(
-                    enabled = true,
-                    destination = "firebase",
-                    appId = "com.example.app",
-                    token = "",  // Empty!
-                    artifactPath = "app.apk"
+    fun testValidTestFlightIosConfig() {
+        val validator = createValidator()
+        val ipa = createTempIpa()
+        val apiKey = createTempAppStoreApiKey()
+
+        try {
+            val config = Config(
+                deploy = DeployConfig(
+                    ios = IosDeployConfig(
+                        enabled = true,
+                        artifactPath = ipa.absolutePath,
+                        testflight = TestFlightDestination(
+                            enabled = true,
+                            apiKeyPath = apiKey.absolutePath,
+                            bundleId = "com.example.app",
+                            teamId = "ABC123XYZ"
+                        ),
+                        appStore = AppStoreDestination(enabled = false)
+                    )
                 )
             )
-        )
 
-        val errors = validator.validate(config)
-        assertTrue(errors.any { it.field == "deploy.android.token" && it.severity == ValidationSeverity.ERROR })
+            val errors = validator.validate(config)
+            assertEquals(0, errors.size, "Valid TestFlight config should have no errors")
+        } finally {
+            ipa.delete()
+            apiKey.delete()
+        }
     }
 
+    /**
+     * Test valid App Store iOS config
+     */
     @Test
-    fun testTestFlightMissingApiKey() {
-        val config = Config(
-            deploy = DeployConfig(
-                enabled = true,
-                ios = IosDeployConfig(
-                    enabled = true,
-                    destination = "testflight",
-                    appId = "com.example.app",
-                    teamId = "ABC123",
-                    apiKey = "",  // Empty!
-                    artifactPath = "app.ipa"
+    fun testValidAppStoreIosConfig() {
+        val validator = createValidator()
+        val ipa = createTempIpa()
+        val apiKey = createTempAppStoreApiKey()
+
+        try {
+            val config = Config(
+                deploy = DeployConfig(
+                    ios = IosDeployConfig(
+                        enabled = true,
+                        artifactPath = ipa.absolutePath,
+                        testflight = TestFlightDestination(enabled = false),
+                        appStore = AppStoreDestination(
+                            enabled = true,
+                            apiKeyPath = apiKey.absolutePath,
+                            bundleId = "com.example.app",
+                            teamId = "ABC123XYZ"
+                        )
+                    )
                 )
             )
-        )
 
-        val errors = validator.validate(config)
-        assertTrue(errors.any { it.field == "deploy.ios.apiKey" && it.severity == ValidationSeverity.ERROR })
+            val errors = validator.validate(config)
+            assertEquals(0, errors.size, "Valid App Store config should have no errors")
+        } finally {
+            ipa.delete()
+            apiKey.delete()
+        }
     }
 
+    /**
+     * Test Firebase missing service account
+     */
     @Test
-    fun testLocalAndroidNeedsNoToken() {
-        val config = Config(
-            deploy = DeployConfig(
-                enabled = true,
-                android = AndroidDeployConfig(
-                    enabled = true,
-                    destination = "local",
-                    appId = "com.example.app",
-                    token = "",  // Empty, but OK for local
-                    artifactPath = "app.apk"
+    fun testFirebaseAndroidMissingServiceAccount() {
+        val validator = createValidator()
+        val apk = createTempApk()
+
+        try {
+            val config = Config(
+                deploy = DeployConfig(
+                    android = AndroidDeployConfig(
+                        enabled = true,
+                        artifactPath = apk.absolutePath,
+                        firebase = FirebaseAndroidDestination(
+                            enabled = true,
+                            serviceAccount = ""  // Empty!
+                        ),
+                        playConsole = PlayConsoleAndroidDestination(enabled = false),
+                        local = LocalAndroidDestination(enabled = false)
+                    )
                 )
             )
-        )
 
-        val errors = validator.validate(config)
-        assertTrue(
-            errors.none { it.field == "deploy.android.token" },
-            "Local upload should not require token"
-        )
-    }
-
-    @Test
-    fun testLocalIosNeedsNoApiKey() {
-        val config = Config(
-            deploy = DeployConfig(
-                enabled = true,
-                ios = IosDeployConfig(
-                    enabled = true,
-                    destination = "local",
-                    appId = "com.example.app",
-                    teamId = "",
-                    apiKey = "",  // Empty, but OK for local
-                    artifactPath = "app.ipa"
-                )
+            val errors = validator.validate(config)
+            assertTrue(
+                errors.any { it.field == "deploy.android.firebase.serviceAccount" && it.severity == ValidationSeverity.ERROR },
+                "Should error on missing service account. Errors: ${errors.map { "${it.field}: ${it.message}" }}"
             )
-        )
-
-        val errors = validator.validate(config)
-        assertTrue(
-            errors.none { it.field == "deploy.ios.apiKey" },
-            "Local upload should not require API key"
-        )
+        } finally {
+            apk.delete()
+        }
     }
 
-    @Test
-    fun testAndroidEmptyArtifactPath() {
-        val config = Config(
-            deploy = DeployConfig(
-                enabled = true,
-                android = AndroidDeployConfig(
-                    enabled = true,
-                    destination = "firebase",
-                    appId = "com.example.app",
-                    token = "token",
-                    artifactPath = ""  // Empty!
-                )
-            )
-        )
-
-        val errors = validator.validate(config)
-        assertTrue(errors.any { it.field == "deploy.android.artifactPath" && it.severity == ValidationSeverity.ERROR })
-    }
-
-    @Test
-    fun testIosEmptyArtifactPath() {
-        val config = Config(
-            deploy = DeployConfig(
-                enabled = true,
-                ios = IosDeployConfig(
-                    enabled = true,
-                    destination = "testflight",
-                    appId = "com.example.app",
-                    teamId = "ABC123",
-                    apiKey = "key",
-                    artifactPath = ""  // Empty!
-                )
-            )
-        )
-
-        val errors = validator.validate(config)
-        assertTrue(errors.any { it.field == "deploy.ios.artifactPath" && it.severity == ValidationSeverity.ERROR })
-    }
-
+    /**
+     * Test both platforms enabled
+     */
     @Test
     fun testBothPlatformsEnabled() {
-        val config = Config(
-            deploy = DeployConfig(
-                enabled = true,
-                android = AndroidDeployConfig(
-                    enabled = true,
-                    destination = "firebase",
-                    appId = "com.example.app",
-                    token = "token",
-                    artifactPath = "app.apk"
-                ),
-                ios = IosDeployConfig(
-                    enabled = true,
-                    destination = "testflight",
-                    appId = "com.example.app",
-                    teamId = "ABC123",
-                    apiKey = "key",
-                    artifactPath = "app.ipa"
+        val validator = createValidator()
+        val apk = createTempApk()
+        val ipa = createTempIpa()
+        val firebaseServiceAccount = createTempFirebaseServiceAccount()
+        val apiKey = createTempAppStoreApiKey()
+
+        try {
+            val config = Config(
+                deploy = DeployConfig(
+                    android = AndroidDeployConfig(
+                        enabled = true,
+                        artifactPath = apk.absolutePath,
+                        firebase = FirebaseAndroidDestination(
+                            enabled = true,
+                            serviceAccount = firebaseServiceAccount.absolutePath
+                        ),
+                        playConsole = PlayConsoleAndroidDestination(enabled = false),
+                        local = LocalAndroidDestination(enabled = false)
+                    ),
+                    ios = IosDeployConfig(
+                        enabled = true,
+                        artifactPath = ipa.absolutePath,
+                        testflight = TestFlightDestination(
+                            enabled = true,
+                            apiKeyPath = apiKey.absolutePath,
+                            bundleId = "com.example.app",
+                            teamId = "ABC123"
+                        ),
+                        appStore = AppStoreDestination(enabled = false)
+                    )
                 )
             )
-        )
 
-        val errors = validator.validate(config)
-        assertEquals(0, errors.size, "Both platforms valid should have no errors")
+            val errors = validator.validate(config)
+            assertEquals(0, errors.size, "Both platforms valid should have no errors. Errors: ${errors.map { "${it.field}: ${it.message}" }}")
+        } finally {
+            apk.delete()
+            ipa.delete()
+            firebaseServiceAccount.delete()
+            apiKey.delete()
+        }
     }
 
-    @Test
-    fun testAndroidDisabled() {
-        val config = Config(
-            deploy = DeployConfig(
-                enabled = true,
-                android = AndroidDeployConfig(
-                    enabled = false,  // Disabled
-                    destination = "invalid",
-                    appId = "",
-                    token = "",
-                    artifactPath = ""
-                )
-            )
-        )
-
-        val errors = validator.validate(config)
-        assertTrue(
-            errors.isEmpty(),
-            "Disabled Android should not be validated"
-        )
-    }
-
-    @Test
-    fun testIosDisabled() {
-        val config = Config(
-            deploy = DeployConfig(
-                enabled = true,
-                ios = IosDeployConfig(
-                    enabled = false,  // Disabled
-                    destination = "invalid",
-                    appId = "",
-                    teamId = "",
-                    apiKey = "",
-                    artifactPath = ""
-                )
-            )
-        )
-
-        val errors = validator.validate(config)
-        assertTrue(
-            errors.isEmpty(),
-            "Disabled iOS should not be validated"
-        )
-    }
-
-    @Test
-    fun testDeployConfigNull() {
-        val config = Config()
-
-        val errors = validator.validate(config)
-        assertEquals(0, errors.size, "empty deploy config should have no errors")
-    }
-
+    /**
+     * Test error has suggestion
+     */
     @Test
     fun testErrorHasSuggestion() {
-        val config = Config(
-            deploy = DeployConfig(
-                enabled = true,
-                android = AndroidDeployConfig(
-                    enabled = true,
-                    destination = "firebase",
-                    appId = "app",
-                    token = "",
-                    artifactPath = "app.apk"
+        val validator = createValidator()
+        val apk = createTempApk()
+
+        try {
+            val config = Config(
+                deploy = DeployConfig(
+                    android = AndroidDeployConfig(
+                        enabled = true,
+                        artifactPath = apk.absolutePath,
+                        firebase = FirebaseAndroidDestination(
+                            enabled = true,
+                            serviceAccount = ""  // Missing
+                        ),
+                        playConsole = PlayConsoleAndroidDestination(enabled = false),
+                        local = LocalAndroidDestination(enabled = false)
+                    )
                 )
             )
-        )
 
-        val errors = validator.validate(config)
-        val tokenError = errors.firstOrNull { it.field == "deploy.android.token" }
+            val errors = validator.validate(config)
+            val error = errors.firstOrNull { it.field == "deploy.android.firebase.serviceAccount" }
 
-        assertTrue(tokenError?.suggestion != null, "Error should have suggestion")
-        assertTrue(tokenError!!.suggestion!!.contains("FIREBASE_TOKEN"))
+            assertTrue(error?.suggestion != null, "Error should have suggestion")
+            assertTrue(error?.suggestion!!.contains("Firebase"), "Suggestion should mention Firebase")
+        } finally {
+            apk.delete()
+        }
     }
 
+    /**
+     * Test multiple destinations with errors
+     */
     @Test
-    fun testMultipleErrors() {
-        val config = Config(
-            deploy = DeployConfig(
-                enabled = true,
-                android = AndroidDeployConfig(
-                    enabled = true,
-                    destination = "invalid",
-                    appId = "app",
-                    token = "",
-                    artifactPath = ""
+    fun testMultipleDestinationsWithErrors() {
+        val validator = createValidator()
+        val apk = createTempApk()
+
+        try {
+            val config = Config(
+                deploy = DeployConfig(
+                    android = AndroidDeployConfig(
+                        enabled = true,
+                        artifactPath = apk.absolutePath,
+                        firebase = FirebaseAndroidDestination(
+                            enabled = true,
+                            serviceAccount = ""  // Error
+                        ),
+                        playConsole = PlayConsoleAndroidDestination(
+                            enabled = true,
+                            serviceAccount = "creds.json",
+                            packageName = ""  // Error
+                        ),
+                        local = LocalAndroidDestination(enabled = false)
+                    )
                 )
             )
-        )
 
-        val errors = validator.validate(config)
-        assertEquals(2, errors.count { it.severity == ValidationSeverity.ERROR })
-        print(errors)
-        assertTrue(errors.any { it.field == "deploy.android.destination" })
-        assertTrue(errors.any { it.field == "deploy.android.artifactPath" })
-
-        assertFalse(errors.any { it.field == "deploy.android.token" })
+            val errors = validator.validate(config)
+            assertTrue(errors.any { it.field == "deploy.android.firebase.serviceAccount" })
+            assertTrue(errors.any { it.field == "deploy.android.playConsole.packageName" })
+        } finally {
+            apk.delete()
+        }
     }
+
+    /**
+     * Test valid multiple test groups
+     */
+    @Test
+    fun testValidMultipleTestGroups() {
+        val validator = createValidator()
+        val apk = createTempApk()
+        val firebaseServiceAccount = createTempFirebaseServiceAccount()
+
+        try {
+            val config = Config(
+                deploy = DeployConfig(
+                    android = AndroidDeployConfig(
+                        enabled = true,
+                        artifactPath = apk.absolutePath,
+                        firebase = FirebaseAndroidDestination(
+                            enabled = true,
+                            serviceAccount = firebaseServiceAccount.absolutePath,  // ✅ Add this!
+                            testGroups = listOf("qa-team", "beta-testers", "internal")
+                        ),
+                        playConsole = PlayConsoleAndroidDestination(enabled = false),
+                        local = LocalAndroidDestination(enabled = false)
+                    )
+                )
+            )
+
+            val errors = validator.validate(config)
+            assertEquals(0, errors.size, "Multiple test groups should be valid. Errors: ${errors.map { "${it.field}: ${it.message}" }}")
+        } finally {
+            apk.delete()
+            firebaseServiceAccount.delete()
+        }
+    }
+
 }

@@ -17,15 +17,17 @@ class DeployConfigValidator : ComponentValidator {
     override fun validate(config: Config): List<ValidationError> {
         val errors = mutableListOf<ValidationError>()
 
-        config.deploy?.let { deployConfig ->
+        config.deploy.let { deployConfig ->
             // Validate Android
             deployConfig.android?.let { android ->
                 errors.addAll(validateAndroid(android))
+                print(errors)
             }
 
             // Validate iOS
             deployConfig.ios?.let { ios ->
                 errors.addAll(validateIos(ios))
+                print(errors)
             }
         }
 

@@ -27,7 +27,7 @@ data class FirebaseAndroidDestination(
     val enabled: Boolean = true,
     val serviceAccount: String = "credentials/firebase-service-account.json",
     val googleServices: String? = null,
-    val releaseNotes: String = "Automated upload",
+    var releaseNotes: String = "Automated upload",
     var testGroups: List<String> = listOf("qa-team")
 )
 

@@ -9,88 +9,67 @@ import java.nio.charset.StandardCharsets
 private val out = PrintWriter(System.out, true, StandardCharsets.UTF_8)
 
 internal fun printDeployResults(results: List<DeployResult>, verbose: Boolean, workingPath: String) {
-    out.println()
-    out.println("📊 Deployment Summary:")
-    out.println()
-
-    // Separate successful and failed results
     val successful = results.filter { it.success }
     val failed = results.filter { !it.success }
 
-    // Print successful deployments
-    successful.forEach { result ->
-        printSuccessfulResult(result, verbose)
+    if (successful.isNotEmpty()) {
+        successful.forEach { result ->
+            printSuccessfulResult(result, verbose)
+        }
     }
 
-    // Print failed deployments with detailed error info
-    failed.forEach { result ->
-        printFailedResult(result, verbose)
+    if (failed.isNotEmpty()) {
+        failed.forEach { result ->
+            printFailedResult(result, verbose)
+        }
     }
 
-    out.println()
-
-    // Print overall status
     printOverallStatus(successful, failed)
 
-    // Print recommendations if there are failures
     if (failed.isNotEmpty()) {
-        out.println()
         printRecommendations(failed, workingPath)
     }
 }
 
-/**
- * Print successful deployment result
- */
 private fun printSuccessfulResult(result: DeployResult, verbose : Boolean) {
     val platform = result.platform.uppercase()
     val dest = result.destination.uppercase()
 
-    out.println("✅ $platform → $dest")
-    out.println("   ${result.message}")
-
-    if (result.buildUrl != null) {
-        out.println("   🔗 ${result.buildUrl}")
-    }
+    val items = mutableMapOf<String, String>()
+    items["Platform"] = "$platform → $dest"
+    items["Status"] = result.message
 
     if (result.buildId != null) {
-        out.println("   ID: ${result.buildId}")
+        items["Release ID"] = result.buildId!!
+    }
+
+    if (result.buildUrl != null) {
+        items["Console"] = result.buildUrl!!
     }
 
     if (verbose && result.duration > 0) {
         val seconds = result.duration / 1000.0
-        out.println("   ⏱️  ${String.format("%.2f", seconds)}s")
+        items["Duration"] = "${String.format("%.2f", seconds)}s"
     }
 
-    out.println()
+    com.mobilectl.util.PremiumLogger.box("Deployment Successful", items, success = true)
 }
 
-/**
- * Print failed deployment result with error details
- */
 private fun printFailedResult(result: DeployResult, verbose: Boolean) {
     val platform = result.platform.uppercase()
     val dest = result.destination.uppercase()
 
-    out.println("❌ $platform → $dest")
-    out.println("   Error: ${result.message}")
+    val items = mutableMapOf<String, String>()
+    items["Platform"] = "$platform → $dest"
+    items["Error"] = result.message
 
-    if (result.error != null) {
-        out.println("   Details: ${result.error!!.message}")
-        if (verbose) {
-            // Print stack trace only in very verbose mode
-            result.error!!.stackTrace.take(3).forEach { stackTrace ->
-                out.println("     at ${stackTrace.methodName}(${stackTrace.fileName}:${stackTrace.lineNumber})")
-            }
-        }
+    if (result.error != null && verbose) {
+        items["Details"] = result.error!!.message ?: "Unknown error"
     }
 
-    out.println()
+    com.mobilectl.util.PremiumLogger.box("Deployment Failed", items, success = false)
 }
 
-/**
- * Print overall deployment status
- */
 private fun printOverallStatus(
     successful: List<DeployResult>,
     failed: List<DeployResult>
@@ -98,20 +77,22 @@ private fun printOverallStatus(
     val total = successful.size + failed.size
 
     if (failed.isEmpty()) {
-        out.println("✅ All $total deployment(s) completed successfully!")
+        com.mobilectl.util.PremiumLogger.simpleSuccess("All $total deployment(s) completed successfully!")
 
         val totalDuration = successful.sumOf { it.duration }
         if (totalDuration > 0) {
             val seconds = totalDuration / 1000.0
-            out.println("⏱️  Total time: ${String.format("%.2f", seconds)}s")
+            com.mobilectl.util.PremiumLogger.info("Total time: ${String.format("%.2f", seconds)}s")
         }
+        println()
     } else {
-        out.println("⚠️  Deployment Status: ${successful.size}/$total successful, ${failed.size} failed")
+        com.mobilectl.util.PremiumLogger.simpleWarning("${successful.size}/$total successful, ${failed.size} failed")
 
         if (successful.isNotEmpty()) {
-            out.println("   ✅ Successful: ${successful.map { it.destination }.joinToString(", ")}")
+            com.mobilectl.util.PremiumLogger.info("Successful: ${successful.map { it.destination }.joinToString(", ")}")
         }
-        out.println("   ❌ Failed: ${failed.map { it.destination }.joinToString(", ")}")
+        com.mobilectl.util.PremiumLogger.info("Failed: ${failed.map { it.destination }.joinToString(", ")}")
+        println()
     }
 }
 

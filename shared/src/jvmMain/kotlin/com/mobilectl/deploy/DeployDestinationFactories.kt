@@ -14,6 +14,9 @@ actual fun createDefaultAndroidDestinations(): Map<String, suspend (File, Map<St
         "firebase" to { file, config ->
             firebaseUploader.upload(file, config)
         },
+        "play-console" to { file, config ->
+            firebaseUploader.upload(file, config)
+        },
         "local" to { file, config ->
             localUploader.upload(file, config)
         }
@@ -29,6 +32,9 @@ actual fun createDefaultIosDestinations(): Map<String, suspend (File, Map<String
 
     return mapOf(
         "testflight" to { file, config ->
+            testflightUploader.upload(file, config)
+        },
+        "app-store" to { file, config ->
             testflightUploader.upload(file, config)
         },
         "local" to { file, config ->

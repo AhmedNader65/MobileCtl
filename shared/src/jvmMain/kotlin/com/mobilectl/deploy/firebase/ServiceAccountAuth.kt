@@ -65,12 +65,13 @@ object ServiceAccountAuth {
 
             validateServiceAccountKey(account)
 
-            println("🔑 Using service account: ${account.client_email}")
+            com.mobilectl.util.PremiumLogger.detail("Service Account", account.client_email)
 
             val jwt = createJwt(account)
             val token = exchangeJwtForToken(jwt, account.token_uri)
 
-            println("✅ Got access token (expires in ${token.expires_in}s)")
+            val expiryText = com.mobilectl.util.TimeFormatter.formatExpiry(token.expires_in)
+            com.mobilectl.util.PremiumLogger.detail("Access Token", "Valid for $expiryText", dim = true)
 
             return token.access_token
 

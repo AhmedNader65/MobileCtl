@@ -46,8 +46,8 @@ class FirebaseAndroidUploader(
                     )
                 }
 
-                println("📤 Uploading to Firebase App Distribution...")
-                println("   File: ${validFile.name} (${validFile.length() / (1024 * 1024)} MB)")
+                com.mobilectl.util.PremiumLogger.section("Firebase App Distribution")
+                com.mobilectl.util.PremiumLogger.detail("File", "${validFile.name} (${validFile.length() / (1024 * 1024)} MB)")
 
                 // Create Firebase client
                 val firebaseClient = firebaseClientProvider(serviceAccountFile)
@@ -67,8 +67,9 @@ class FirebaseAndroidUploader(
 
                 // Return result
                 return@withContext if (uploadResponse.success) {
-                    println("✅ Build uploaded successfully")
-                    println("   Release ID: ${uploadResponse.buildId}")
+                    com.mobilectl.util.PremiumLogger.success("Upload complete")
+                    com.mobilectl.util.PremiumLogger.detail("Release ID", uploadResponse.buildId ?: "N/A")
+                    com.mobilectl.util.PremiumLogger.sectionEnd()
 
                     DeployResult(
                         success = true,

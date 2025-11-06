@@ -20,33 +20,66 @@ class AndroidBuilder(
             val buildFlavor = config.build.android.defaultFlavor
             val buildType = config.build.android.defaultType
 
-            logger.info("🔨 Building Android: $buildFlavor/$buildType")
+            com.mobilectl.util.PremiumLogger.section("Building Android")
+            com.mobilectl.util.PremiumLogger.detail("Variant", "$buildFlavor/$buildType")
 
-            // Step 1: Find gradlew
             val gradlewPath = findGradleWrapper(baseDir)
-                ?: return failedBuild(startTime, "gradlew not found")
+                ?: return failedBuild(
+                    startTime,
+                    "Gradle wrapper not found",
+                    "Ensure gradlew or gradlew.bat exists in project root"
+                )
 
-            logger.info("Using gradlew: $gradlewPath")
+            com.mobilectl.util.PremiumLogger.detail("Gradle", gradlewPath)
 
-            // Step 2: Build APK
-            val buildSuccess = buildApk(gradlewPath, buildFlavor, buildType, baseDir)
-            if (!buildSuccess) {
-                return failedBuild(startTime, "APK build failed")
+            val sourceFiles = BuildCache.getAndroidSourceFiles(baseDir)
+            val validation = BuildCache.validateCache(baseDir, sourceFiles)
+
+            showCacheValidationResult(validation)
+
+            if (!validation.needsRebuild) {
+                val existingArtifact = findSignedApkPath(baseDir, buildFlavor, buildType)
+                    ?: findUnsignedApkPath(baseDir, buildFlavor, buildType)
+
+                if (existingArtifact != null) {
+                    val duration = System.currentTimeMillis() - startTime
+                    return BuildOutput(
+                        success = true,
+                        platform = Platform.ANDROID,
+                        outputPath = existingArtifact,
+                        isSigned = !existingArtifact.contains("unsigned"),
+                        durationMs = duration
+                    )
+                }
             }
 
-            logger.info("✅ APK built successfully")
+            val buildSuccess = buildApk(gradlewPath, buildFlavor, buildType, baseDir)
+            if (!buildSuccess) {
+                return failedBuild(
+                    startTime,
+                    "Android build failed: assemble${buildFlavor.replaceFirstChar { it.uppercase() }}${buildType.replaceFirstChar { it.uppercase() }} exited with non-zero code",
+                    "Run with DEBUG=1 for verbose output. Common causes: Missing dependencies, incorrect Java version, gradle.properties misconfiguration"
+                )
+            }
 
-            // Step 3: Sign APK (or warn if skipping)
+            BuildCache.updateCache(baseDir, sourceFiles)
+            com.mobilectl.util.PremiumLogger.success("APK built successfully")
+
             val signResult = attemptSign(baseDir, config, buildFlavor, buildType)
             if (!signResult.success && signResult.isFatal) {
+                com.mobilectl.util.PremiumLogger.sectionEnd()
                 return failedBuild(startTime, signResult.message)
             }
 
-            // Log signing result
             if (signResult.isSigned) {
-                logger.info("✅ APK signed successfully")
+                com.mobilectl.util.PremiumLogger.success("APK signed successfully")
             } else {
-                logger.warn("⚠️  ${signResult.message}")
+                com.mobilectl.util.PremiumLogger.warning(signResult.message)
+            }
+
+            com.mobilectl.util.PremiumLogger.sectionEnd()
+
+            if (!signResult.isSigned) {
                 showSigningSetupGuide()
             }
 
@@ -172,43 +205,82 @@ class AndroidBuilder(
         }
     }
 
-    /**
-     * Show setup guide for keystore
-     */
-    private fun showSigningSetupGuide() {
-        logger.warn("")
-        logger.warn("═══════════════════════════════════════════════════")
-        logger.warn("📋 To enable APK signing, set up your keystore:")
-        logger.warn("═══════════════════════════════════════════════════")
-        logger.warn("")
-        logger.warn("Option 1: Generate new keystore")
-        logger.warn("  keytool -genkey -v -keystore keystore.jks \\")
-        logger.warn("    -keyalg RSA -keysize 2048 -validity 10000 \\")
-        logger.warn("    -alias my-app-key -storepass password1 \\")
-        logger.warn("    -keypass password1")
-        logger.warn("")
-        logger.warn("Option 2: Configure in mobilectl.yaml")
-        logger.warn("  build:")
-        logger.warn("    android:")
-        logger.warn("      keyStore: keystore.jks")
-        logger.warn("      keyAlias: my-app-key")
-        logger.warn("      keyPassword: password1")
-        logger.warn("      storePassword: password1")
-        logger.warn("")
-        logger.warn("Option 3: Set environment variables")
-        logger.warn("  export MOBILECTL_KEY_ALIAS=my-app-key")
-        logger.warn("  export MOBILECTL_KEY_PASSWORD=password1")
-        logger.warn("  export MOBILECTL_STORE_PASSWORD=password1")
-        logger.warn("")
-        logger.warn("⚠️  WARNING: Unsigned APKs cannot be uploaded to Google Play Console")
-        logger.warn("           They are only for Firebase App Distribution")
-        logger.warn("═══════════════════════════════════════════════════")
-        logger.warn("")
+    private fun showCacheValidationResult(validation: BuildCache.ValidationResult) {
+        val green = "\u001B[32m"
+        val cyan = "\u001B[36m"
+        val yellow = "\u001B[33m"
+        val gray = "\u001B[90m"
+        val white = "\u001B[97m"
+        val reset = "\u001B[0m"
+        val bold = "\u001B[1m"
+        val dim = "\u001B[2m"
+
+        println()
+        println("$gray┌─────────────────────────────────────────────────────────┐$reset")
+
+        if (validation.needsRebuild) {
+            println("$gray│$reset  ${yellow}⟳$reset  ${bold}${white}Build Cache Validation$reset                            $gray│$reset")
+            println("$gray├─────────────────────────────────────────────────────────┤$reset")
+            println("$gray│$reset  ${dim}Status$reset          ${yellow}●$reset ${yellow}${validation.reason}$reset")
+            println("$gray│$reset  ${dim}Files Checked$reset   ${validation.filesChecked} source files")
+
+            if (validation.cachedHash != null && validation.currentHash != null) {
+                println("$gray│$reset  ${dim}Cache Hash$reset      ${gray}${validation.cachedHash.take(12)}...$reset")
+                println("$gray│$reset  ${dim}Current Hash$reset    ${gray}${validation.currentHash.take(12)}...$reset")
+            }
+
+            println("$gray│$reset  ${dim}Action$reset          Rebuilding from source")
+        } else {
+            println("$gray│$reset  ${green}✓$reset  ${bold}${white}Build Cache Validation$reset                            $gray│$reset")
+            println("$gray├─────────────────────────────────────────────────────────┤$reset")
+            println("$gray│$reset  ${dim}Status$reset          ${green}●$reset ${green}${validation.reason}$reset")
+            println("$gray│$reset  ${dim}Files Checked$reset   ${validation.filesChecked} source files")
+            println("$gray│$reset  ${dim}Hash Match$reset      ${gray}${validation.currentHash?.take(12)}...$reset")
+            println("$gray│$reset  ${dim}Action$reset          ${green}Using cached artifact$reset")
+        }
+
+        println("$gray└─────────────────────────────────────────────────────────┘$reset")
+        println()
     }
 
-    /**
-     * Sign the APK
-     */
+    private fun showSigningSetupGuide() {
+        val cyan = "\u001B[36m"
+        val yellow = "\u001B[33m"
+        val gray = "\u001B[90m"
+        val white = "\u001B[97m"
+        val reset = "\u001B[0m"
+        val bold = "\u001B[1m"
+        val dim = "\u001B[2m"
+
+        println()
+        println("$gray╭─────────────────────────────────────────────────────────╮$reset")
+        println("$gray│$reset                                                           $gray│$reset")
+        println("$gray│$reset  $yellow⚡$reset ${bold}${white}Enable APK Signing for Production Builds$reset       $gray│$reset")
+        println("$gray│$reset                                                           $gray│$reset")
+        println("$gray╰─────────────────────────────────────────────────────────╯$reset")
+        println()
+        println("  ${cyan}►$reset ${bold}Step 1$reset ${dim}— Generate Keystore$reset")
+        println("    ${gray}keytool -genkey -v -keystore release.jks -keyalg RSA \\$reset")
+        println("    ${gray}  -keysize 2048 -validity 10000 -alias release-key$reset")
+        println()
+        println("  ${cyan}►$reset ${bold}Step 2$reset ${dim}— Configure mobilectl.yaml$reset")
+        println("    ${gray}build:$reset")
+        println("    ${gray}  android:$reset")
+        println("    ${gray}    keyStore: release.jks$reset")
+        println("    ${gray}    keyAlias: release-key$reset")
+        println("    ${gray}    keyPassword: \${KEY_PASSWORD}      ${dim}# Use env vars$reset")
+        println("    ${gray}    storePassword: \${STORE_PASSWORD}$reset")
+        println()
+        println("  ${cyan}►$reset ${bold}Step 3$reset ${dim}— Set Environment Variables$reset")
+        println("    ${gray}export KEY_PASSWORD=your_secure_password$reset")
+        println("    ${gray}export STORE_PASSWORD=your_secure_password$reset")
+        println()
+        println("  ${dim}${gray}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$reset")
+        println("  ℹ️  ${dim}Google Play Console requires signed APKs$reset")
+        println("     ${dim}Firebase App Distribution accepts unsigned builds$reset")
+        println()
+    }
+
     private suspend fun signApk(
         unsignedApkPath: String,
         keystorePath: String,
@@ -220,7 +292,7 @@ class AndroidBuilder(
         return try {
             val signedApkPath = unsignedApkPath.replace("-unsigned.apk", ".apk")
 
-            val result = processExecutor.execute(
+            val result = processExecutor.executeWithProgress(
                 command = "jarsigner",
                 args = listOf(
                     "-verbose",
@@ -233,9 +305,14 @@ class AndroidBuilder(
                     unsignedApkPath,
                     keyAlias
                 ),
-                workingDir = baseDir
+                workingDir = baseDir,
+                onProgress = { progress ->
+                    print("\r[BUILD] 🔐 $progress")
+                    System.out.flush()
+                }
             )
 
+            print("\r" + " ".repeat(80) + "\r")
             result.success
 
         } catch (e: Exception) {
@@ -244,9 +321,6 @@ class AndroidBuilder(
         }
     }
 
-    /**
-     * Build APK using Gradle
-     */
     private suspend fun buildApk(
         gradlewPath: String,
         flavor: String,
@@ -257,18 +331,27 @@ class AndroidBuilder(
             val variantName = "${flavor.lowercase()}${type.replaceFirstChar { it.uppercase() }}"
             val gradleTask = "assemble${variantName.replaceFirstChar { it.uppercase() }}"
 
-            logger.info("Running: $gradleTask")
+            com.mobilectl.util.PremiumLogger.progress("Running $gradleTask")
+            val startTime = System.currentTimeMillis()
 
-            val result = processExecutor.execute(
+            val result = processExecutor.executeWithProgress(
                 command = gradlewPath,
                 args = listOf(gradleTask),
-                workingDir = baseDir
+                workingDir = baseDir,
+                onProgress = { progress ->
+                    print("\r\u001B[90m│\u001B[0m  \u001B[36m⋯\u001B[0m  \u001B[2m$progress\u001B[0m")
+                    System.out.flush()
+                }
             )
+
+            print("\r" + " ".repeat(80) + "\r")
+            val elapsed = (System.currentTimeMillis() - startTime) / 1000
+            com.mobilectl.util.PremiumLogger.detail("Duration", "${elapsed}s", dim = true)
 
             result.success
 
         } catch (e: Exception) {
-            logger.error("Build execution failed: ${e.message}")
+            com.mobilectl.util.PremiumLogger.error("Build execution failed: ${e.message}")
             false
         }
     }
@@ -311,9 +394,12 @@ class AndroidBuilder(
         return null
     }
 
-    private fun failedBuild(startTime: Long, message: String): BuildOutput {
+    private fun failedBuild(startTime: Long, message: String, tip: String? = null): BuildOutput {
         val duration = System.currentTimeMillis() - startTime
-        logger.error("❌ $message")
+        logger.error(message)
+        if (tip != null) {
+            logger.info("💡 $tip")
+        }
         return BuildOutput(
             success = false,
             platform = Platform.ANDROID,

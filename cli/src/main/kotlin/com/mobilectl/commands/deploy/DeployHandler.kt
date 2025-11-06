@@ -333,14 +333,14 @@ class DeployHandler(
             )
 
             if (result.success) {
-                out.println("✅ Build completed successfully")
+                com.mobilectl.util.PremiumLogger.header("Build Completed", "✓")
                 result.outputs.forEach { output ->
                     if (output.success && output.outputPath != null) {
-                        out.println("   📦 ${output.platform}: ${output.outputPath}")
+                        com.mobilectl.util.PremiumLogger.info("${output.platform}: ${output.outputPath}")
                     }
                 }
             } else {
-                out.println("❌ Build failed")
+                com.mobilectl.util.PremiumLogger.simpleError("Build failed")
             }
 
             result
@@ -523,8 +523,10 @@ class DeployHandler(
     }
 
     private suspend fun executeDeploy(config: Config, platforms: Set<Platform>, env: String) {
-        out.println("🚀 Starting deployment...")
-        out.println()
+        com.mobilectl.util.PremiumLogger.header("Starting Deployment", "🚀")
+        com.mobilectl.util.PremiumLogger.info("Environment: $env")
+        com.mobilectl.util.PremiumLogger.info("Platforms: ${platforms.joinToString(", ")}")
+        println()
 
         val orchestrator = DeployOrchestrator()
         val baseDir = File(workingPath)
@@ -858,8 +860,7 @@ class DeployHandler(
 
         // Apply new parameters
         if (newReleaseNotes != null) {
-            // Store for later use in deployment
-            // (You might want to pass this separately)
+            config.deploy.android?.firebase?.releaseNotes = newReleaseNotes
         }
 
         return config

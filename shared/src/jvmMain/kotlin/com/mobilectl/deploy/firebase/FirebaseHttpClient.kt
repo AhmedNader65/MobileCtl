@@ -81,11 +81,9 @@ class FirebaseHttpClient(
     ): FirebaseUploadResponse {
         return withContext(Dispatchers.IO) {
             try {
-                println("📤 Uploading ${file.name} (${file.length() / (1024 * 1024)} MB)...")
-
                 val releaseId = uploadApk(file, releaseNotes, testGroups)
 
-                println("✅ Release created: $releaseId")
+                com.mobilectl.util.PremiumLogger.success("Release created: $releaseId")
 
                 FirebaseUploadResponse(
                     success = true,
@@ -118,7 +116,9 @@ class FirebaseHttpClient(
         return withContext(Dispatchers.IO) {
             try {
                 val url = buildEndpointUrl()
-                println("📍 Endpoint: $url")
+                val startUpload = System.currentTimeMillis()
+
+                com.mobilectl.util.PremiumLogger.progress("Uploading to Firebase (${file.length() / (1024 * 1024)} MB)")
 
                 val requestBody = file.asRequestBody("application/octet-stream".toMediaType())
 
@@ -132,20 +132,19 @@ class FirebaseHttpClient(
 
                 client.newCall(request).execute().use { response ->
                     val responseBody = response.body?.string() ?: ""
-
-                    println("📝 Response: HTTP ${response.code}")
+                    val uploadDuration = (System.currentTimeMillis() - startUpload) / 1000
 
                     if (!response.isSuccessful) {
                         throw Exception("HTTP ${response.code}: $responseBody")
                     }
 
+                    com.mobilectl.util.PremiumLogger.success("Uploaded in ${uploadDuration}s")
+
                     val operationName = parseOperationName(responseBody)
-                    println("⏳ Waiting for operation to complete: $operationName")
+                    com.mobilectl.util.PremiumLogger.progress("Processing release...")
 
                     val releaseName = pollOperation(operationName)
-                    println("✅ Release ready: $releaseName")
 
-                    // Distribute the release after upload completes
                     distributeRelease(releaseName, releaseNotes, testGroups)
 
                     releaseName.substringAfterLast("/")
@@ -186,9 +185,6 @@ class FirebaseHttpClient(
             append("]}")
         }
 
-        println("📍 Distribution URL: $url")
-        println("📝 Request body: $requestBodyJson")
-
         val request = Request.Builder()
             .url(url)
             .post(okhttp3.RequestBody.create("application/json".toMediaType(), requestBodyJson))
@@ -198,16 +194,11 @@ class FirebaseHttpClient(
         client.newCall(request).execute().use { response ->
             val responseBody = response.body?.string() ?: ""
 
-            println("📝 Distribution response: HTTP ${response.code}")
-            if (responseBody.isNotEmpty()) {
-                println("📝 Response body: $responseBody")
-            }
-
             if (!response.isSuccessful) {
                 throw Exception("Distribution failed: HTTP ${response.code}\n$responseBody")
             }
 
-            println("✅ Distributed to groups: ${groupsToDistribute.joinToString()}")
+            com.mobilectl.util.PremiumLogger.success("Distributed to: ${groupsToDistribute.joinToString(", ")}")
         }
     }
 

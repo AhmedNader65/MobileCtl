@@ -162,7 +162,7 @@ class BuildConfigValidatorTest {
         val config = Config(
             build = BuildConfig(
                 android = AndroidBuildConfig(
-                    enabled = null,  // Auto-detect
+                    enabled = true,
                     defaultType = ""
                 )
             )
