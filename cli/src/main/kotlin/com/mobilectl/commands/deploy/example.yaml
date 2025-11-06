@@ -1,0 +1,40 @@
+version: 1.0
+
+android:
+  enabled: true
+  artifact_path: build/outputs/apk/release/app-release.apk
+
+  # Deploy to Firebase
+  firebase:
+    enabled: true
+    service_account: credentials/firebase-service-account.json
+    test_groups:
+      - qa-team
+      - internal-testers
+
+  # Deploy to Play Console
+  play_console:
+    enabled: false  # Set to true to also deploy here
+    service_account: credentials/play-console-service-account.json
+    package_name: com.example.app
+
+  # Deploy locally for testing
+  local:
+    enabled: false
+    output_dir: build/deploy
+
+ios:
+  enabled: true
+  artifact_path: build/outputs/ipa/release/app.ipa
+
+  testflight:
+    enabled: true
+    api_key_path: credentials/app-store-connect-api-key.json
+    bundle_id: com.example.app
+    team_id: ABC123DEF
+
+  app_store:
+    enabled: false
+    api_key_path: credentials/app-store-connect-api-key.json
+    bundle_id: com.example.app
+    team_id: ABC123DEF

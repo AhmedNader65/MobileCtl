@@ -11,9 +11,14 @@ import com.mobilectl.model.changelog.CommitType
 import com.mobilectl.model.changelog.ReleaseNotes
 import com.mobilectl.model.changelog.getDefaultCommitTypes
 import com.mobilectl.model.deploy.AndroidDeployConfig
+import com.mobilectl.model.deploy.AppStoreDestination
 import com.mobilectl.model.deploy.DeployConfig
 import com.mobilectl.model.deploy.DeploymentDestination
+import com.mobilectl.model.deploy.FirebaseAndroidDestination
 import com.mobilectl.model.deploy.IosDeployConfig
+import com.mobilectl.model.deploy.LocalAndroidDestination
+import com.mobilectl.model.deploy.PlayConsoleAndroidDestination
+import com.mobilectl.model.deploy.TestFlightDestination
 import com.mobilectl.model.notifications.EmailNotifyConfig
 import com.mobilectl.model.notifications.NotifyConfig
 import com.mobilectl.model.notifications.SlackNotifyConfig
@@ -197,45 +202,173 @@ class SnakeYamlConfigParser : ConfigParser {
         )
     }
 
-
-    private fun convertToDeployConfig(data: Map<String, Any?>?): DeployConfig {
+    /**
+     * Convert raw YAML data to DeployConfig
+     */
+    fun convertToDeployConfig(data: Map<String, Any?>?): DeployConfig {
         if (data == null) return DeployConfig()
 
         val android = convertToAndroidDeployConfig(data["android"] as? Map<String, Any?>)
         val ios = convertToIosDeployConfig(data["ios"] as? Map<String, Any?>)
 
-        // If neither android nor ios, return null (deploy not configured)
-        if (android == null && ios == null) return DeployConfig()
+        // If neither android nor ios, return empty config
+        if (android == null && ios == null) {
+            return DeployConfig()
+        }
 
         return DeployConfig(
-            enabled = (data["enabled"] as? Boolean) ?: false,
             android = android,
             ios = ios
         )
     }
 
+    /**
+     * Convert raw YAML data to AndroidDeployConfig
+     */
     private fun convertToAndroidDeployConfig(data: Map<String, Any?>?): AndroidDeployConfig? {
         if (data == null) return null
 
         return AndroidDeployConfig(
             enabled = (data["enabled"] as? Boolean) ?: true,
-            destination = (data["destination"] as? String) ?: "firebase",
-            appId = (data["appId"] as? String) ?: "",
-            token = (data["token"] as? String) ?: "",
-            artifactPath = (data["artifactPath"] as? String) ?: ""
+            artifactPath = (data["artifact_path"] as? String)
+                ?: (data["artifactPath"] as? String)
+                ?: "build/outputs/apk/release/app-release.apk",
+
+            firebase = convertToFirebaseAndroidDestination(data["firebase"] as? Map<String, Any?>),
+            playConsole = convertToPlayConsoleAndroidDestination(data["play_console"] as? Map<String, Any?>),
+            local = convertToLocalAndroidDestination(data["local"] as? Map<String, Any?>)
         )
     }
 
+    /**
+     * Convert raw YAML data to Firebase Android destination config
+     */
+    private fun convertToFirebaseAndroidDestination(
+        data: Map<String, Any?>?
+    ): FirebaseAndroidDestination {
+        if (data == null) {
+            return FirebaseAndroidDestination()
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        val testGroups = when (val tg = data["test_groups"] ?: data["testGroups"]) {
+            is List<*> -> tg.mapNotNull { it?.toString() }
+            is String -> listOf(tg)
+            else -> listOf("qa-team")
+        }
+
+        return FirebaseAndroidDestination(
+            enabled = (data["enabled"] as? Boolean) ?: true,
+            serviceAccount = (data["service_account"] as? String)
+                ?: (data["serviceAccount"] as? String)
+                ?: "credentials/firebase-service-account.json",
+            googleServices = (data["google_services"] as? String)
+                ?: (data["googleServices"] as? String),
+            testGroups = testGroups,
+        )
+    }
+
+    /**
+     * Convert raw YAML data to Play Console Android destination config
+     */
+    private fun convertToPlayConsoleAndroidDestination(
+        data: Map<String, Any?>?
+    ): PlayConsoleAndroidDestination {
+        if (data == null) {
+            return PlayConsoleAndroidDestination()
+        }
+
+        return PlayConsoleAndroidDestination(
+            enabled = (data["enabled"] as? Boolean) ?: false,
+            serviceAccount = (data["service_account"] as? String)
+                ?: (data["serviceAccount"] as? String)
+                ?: "credentials/play-console-service-account.json",
+            packageName = (data["package_name"] as? String)
+                ?: (data["packageName"] as? String)
+                ?: ""
+        )
+    }
+
+    /**
+     * Convert raw YAML data to Local Android destination config
+     */
+    private fun convertToLocalAndroidDestination(
+        data: Map<String, Any?>?
+    ): LocalAndroidDestination {
+        if (data == null) {
+            return LocalAndroidDestination()
+        }
+
+        return LocalAndroidDestination(
+            enabled = (data["enabled"] as? Boolean) ?: false,
+            outputDir = (data["output_dir"] as? String)
+                ?: (data["outputDir"] as? String)
+                ?: "build/deploy"
+        )
+    }
+
+    /**
+     * Convert raw YAML data to IosDeployConfig
+     */
     private fun convertToIosDeployConfig(data: Map<String, Any?>?): IosDeployConfig? {
         if (data == null) return null
 
         return IosDeployConfig(
             enabled = (data["enabled"] as? Boolean) ?: true,
-            destination = (data["destination"] as? String) ?: "testflight",
-            appId = (data["appId"] as? String) ?: "",
-            teamId = (data["teamId"] as? String) ?: "",
-            apiKey = (data["apiKey"] as? String) ?: "",
-            artifactPath = (data["artifactPath"] as? String) ?: ""
+            artifactPath = (data["artifact_path"] as? String)
+                ?: (data["artifactPath"] as? String)
+                ?: "build/outputs/ipa/release/app.ipa",
+
+            testflight = convertToTestFlightDestination(data["testflight"] as? Map<String, Any?>),
+            appStore = convertToAppStoreDestination(data["app_store"] as? Map<String, Any?>)
+        )
+    }
+
+    /**
+     * Convert raw YAML data to TestFlight iOS destination config
+     */
+    private fun convertToTestFlightDestination(
+        data: Map<String, Any?>?
+    ): TestFlightDestination {
+        if (data == null) {
+            return TestFlightDestination()
+        }
+
+        return TestFlightDestination(
+            enabled = (data["enabled"] as? Boolean) ?: true,
+            apiKeyPath = (data["api_key_path"] as? String)
+                ?: (data["apiKeyPath"] as? String)
+                ?: "credentials/app-store-connect-api-key.json",
+            bundleId = (data["bundle_id"] as? String)
+                ?: (data["bundleId"] as? String)
+                ?: "",
+            teamId = (data["team_id"] as? String)
+                ?: (data["teamId"] as? String)
+                ?: ""
+        )
+    }
+
+    /**
+     * Convert raw YAML data to App Store iOS destination config
+     */
+    private fun convertToAppStoreDestination(
+        data: Map<String, Any?>?
+    ): AppStoreDestination {
+        if (data == null) {
+            return AppStoreDestination()
+        }
+
+        return AppStoreDestination(
+            enabled = (data["enabled"] as? Boolean) ?: false,
+            apiKeyPath = (data["api_key_path"] as? String)
+                ?: (data["apiKeyPath"] as? String)
+                ?: "credentials/app-store-connect-api-key.json",
+            bundleId = (data["bundle_id"] as? String)
+                ?: (data["bundleId"] as? String)
+                ?: "",
+            teamId = (data["team_id"] as? String)
+                ?: (data["teamId"] as? String)
+                ?: ""
         )
     }
     private fun convertToNotifyConfig(data: Map<String, Any?>): NotifyConfig {

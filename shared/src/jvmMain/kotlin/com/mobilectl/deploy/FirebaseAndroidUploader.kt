@@ -1,147 +1,117 @@
 package com.mobilectl.deploy
 
+import com.mobilectl.deploy.firebase.FirebaseClient
+import com.mobilectl.deploy.firebase.FirebaseHttpClient
 import com.mobilectl.model.deploy.DeployResult
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 
-class FirebaseAndroidUploader : BaseUploadStrategy() {
+/**
+ * Firebase Android App Distribution uploader
+ * SOLID: Single Responsibility - only handles upload orchestration
+ */
+class FirebaseAndroidUploader(
+    private val firebaseClientProvider: suspend (File) -> FirebaseClient = { serviceAccountFile ->
+        FirebaseHttpClient.create(serviceAccountFile)
+    }
+) : BaseUploadStrategy() {
 
     override suspend fun upload(
         artifactFile: File,
         config: Map<String, String>
     ): DeployResult {
-        return try {
-            val startTime = System.currentTimeMillis()
+        return withContext(Dispatchers.IO) {
+            try {
+                val startTime = System.currentTimeMillis()
 
-            // Validate file
-            val validFile = validateFile(artifactFile).getOrNull()
-                ?: return DeployResult(
-                    success = false,
-                    platform = "android",
-                    destination = "firebase",
-                    message = validateFile(artifactFile).exceptionOrNull()?.message ?: "Unknown error"
+                // Validate artifact
+                val validFile = validateFile(artifactFile).getOrNull()
+                    ?: return@withContext createFailureResult(
+                        validateFile(artifactFile).exceptionOrNull()?.message ?: "Invalid file",
+                        validateFile(artifactFile).exceptionOrNull() as Exception? ?: IllegalArgumentException("Invalid file")
+                    )
+
+                // Get service account path
+                val serviceAccountPath = getRequiredConfig(config, "serviceAccount").getOrNull()
+                    ?: return@withContext createFailureResult("Missing 'serviceAccount' config",
+                        IllegalArgumentException("Missing 'serviceAccount' config")
+                    )
+
+                val serviceAccountFile = File(serviceAccountPath)
+                if (!serviceAccountFile.exists()) {
+                    return@withContext createFailureResult(
+                        "Service account file not found: $serviceAccountPath",
+                        IllegalArgumentException("Service account file not found")
+                    )
+                }
+
+                println("📤 Uploading to Firebase App Distribution...")
+                println("   File: ${validFile.name} (${validFile.length() / (1024 * 1024)} MB)")
+
+                // Create Firebase client
+                val firebaseClient = firebaseClientProvider(serviceAccountFile)
+
+                // Extract upload parameters
+                val releaseNotes = config["releaseNotes"]
+                val testGroups = config["testGroups"]?.split(",")?.map { it.trim() } ?: emptyList()
+
+                // Upload
+                val uploadResponse = firebaseClient.uploadBuild(
+                    file = validFile,
+                    releaseNotes = releaseNotes,
+                    testGroups = testGroups
                 )
 
-            // Validate config
-            val token = getRequiredConfig(config, "token").getOrNull()
-                ?: return DeployResult(
-                    success = false,
-                    platform = "android",
-                    destination = "firebase",
-                    message = "Missing Firebase token"
-                )
+                val duration = System.currentTimeMillis() - startTime
 
-            val appId = getRequiredConfig(config, "appId").getOrNull()
-                ?: return DeployResult(
-                    success = false,
-                    platform = "android",
-                    destination = "firebase",
-                    message = "Missing Firebase app ID"
-                )
+                // Return result
+                return@withContext if (uploadResponse.success) {
+                    println("✅ Build uploaded successfully")
+                    println("   Release ID: ${uploadResponse.buildId}")
 
-            println("📤 Uploading to Firebase App Distribution...")
-            println("   App ID: $appId")
-            println("   File: ${validFile.name} (${validFile.length() / (1024 * 1024)} MB)")
+                    DeployResult(
+                        success = true,
+                        platform = "android",
+                        destination = "firebase",
+                        message = uploadResponse.message,
+                        buildId = uploadResponse.buildId,
+                        buildUrl = uploadResponse.buildUrl,
+                        duration = duration
+                    )
+                } else {
+                    DeployResult(
+                        success = false,
+                        platform = "android",
+                        destination = "firebase",
+                        message = uploadResponse.message,
+                        duration = duration
+                    )
+                }
 
-            // TODO: Implement actual Firebase upload
-            // For now, simulate upload
-            simulateUpload(validFile)
-
-            val duration = System.currentTimeMillis() - startTime
-
-            DeployResult(
-                success = true,
-                platform = "android",
-                destination = "firebase",
-                message = "Successfully uploaded to Firebase App Distribution",
-                buildId = generateBuildId(),
-                duration = duration
-            )
-
-        } catch (e: Exception) {
-            DeployResult(
-                success = false,
-                platform = "android",
-                destination = "firebase",
-                message = "Upload failed: ${e.message}"
-            )
+            } catch (e: Exception) {
+                return@withContext createFailureResult(e.message ?: "Unknown error", e)
+            }
         }
     }
 
     override fun validateConfig(config: Map<String, String>): List<String> {
         val errors = mutableListOf<String>()
 
-        if (config["token"].isNullOrBlank()) {
-            errors.add("Firebase token is required (set FIREBASE_TOKEN env var)")
-        }
-
-        if (config["appId"].isNullOrBlank()) {
-            errors.add("Firebase app ID is required")
+        if (config["serviceAccount"].isNullOrBlank()) {
+            errors.add("'serviceAccount' path is required in config")
         }
 
         return errors
     }
 
-    private suspend fun simulateUpload(file: File) {
-        // Simulate network delay
-        kotlinx.coroutines.delay(1000)
-    }
-
-    private fun generateBuildId(): String {
-        return "firebase_${System.currentTimeMillis()}"
-    }
-}
-
-class LocalAndroidUploader : BaseUploadStrategy() {
-
-    override suspend fun upload(
-        artifactFile: File,
-        config: Map<String, String>
-    ): DeployResult {
-        return try {
-            val startTime = System.currentTimeMillis()
-
-            val validFile = validateFile(artifactFile).getOrNull()
-                ?: return DeployResult(
-                    success = false,
-                    platform = "android",
-                    destination = "local",
-                    message = "Invalid artifact file"
-                )
-
-            val outputDir = config["outputDir"]?.let { File(it) }
-                ?: File("build/deploy")
-
-            outputDir.mkdirs()
-            val destFile = File(outputDir, validFile.name)
-
-            println("📁 Copying to local directory...")
-            println("   From: ${validFile.absolutePath}")
-            println("   To: ${destFile.absolutePath}")
-
-            validFile.copyTo(destFile, overwrite = true)
-
-            val duration = System.currentTimeMillis() - startTime
-
-            DeployResult(
-                success = true,
-                platform = "android",
-                destination = "local",
-                message = "Artifact copied to ${destFile.absolutePath}",
-                buildUrl = destFile.absolutePath,
-                duration = duration
-            )
-
-        } catch (e: Exception) {
-            DeployResult(
-                success = false,
-                platform = "android",
-                destination = "local",
-                message = "Copy failed: ${e.message}"
-            )
-        }
-    }
-
-    override fun validateConfig(config: Map<String, String>): List<String> {
-        return emptyList()  // No required config for local
+    private fun createFailureResult(message: String, error: Exception): DeployResult {
+        return DeployResult(
+            success = false,
+            platform = "android",
+            error = error,
+            destination = "firebase",
+            message = message
+        )
     }
 }

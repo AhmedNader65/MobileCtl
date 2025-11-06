@@ -1,6 +1,5 @@
 package com.mobilectl
 
-import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.main
 import com.github.ajalt.clikt.core.subcommands
 import com.mobilectl.commands.BuildCommand
@@ -9,12 +8,12 @@ import com.mobilectl.commands.ChangelogGenerateCommand
 import com.mobilectl.commands.ChangelogRestoreCommand
 import com.mobilectl.commands.ChangelogShowCommand
 import com.mobilectl.commands.ChangelogUpdateCommand
-import com.mobilectl.commands.DeployCommand
 import com.mobilectl.commands.InfoCommand
 import com.mobilectl.commands.VersionBumpCommand
 import com.mobilectl.commands.VersionCommand
 import com.mobilectl.commands.VersionRestoreCommand
 import com.mobilectl.commands.VersionShowCommand
+import com.mobilectl.commands.DeployCommand
 
 fun main(args: Array<String>) {
     try {

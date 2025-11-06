@@ -1,0 +1,909 @@
+package com.mobilectl.commands.deploy
+
+import com.mobilectl.builder.AndroidBuilder
+import com.mobilectl.builder.BuildOrchestrator
+import com.mobilectl.builder.BuildResult
+import com.mobilectl.builder.IosBuilder
+import com.mobilectl.builder.JvmBuildManager
+import com.mobilectl.config.Config
+import com.mobilectl.config.ConfigLoader
+import com.mobilectl.deploy.DeployOrchestrator
+import com.mobilectl.detector.createProjectDetector
+import com.mobilectl.model.Platform
+import com.mobilectl.model.buildConfig.BuildConfig
+import com.mobilectl.model.deploy.AndroidDeployConfig
+import com.mobilectl.model.deploy.AppStoreDestination
+import com.mobilectl.model.deploy.DeployConfig
+import com.mobilectl.model.deploy.DeployResult
+import com.mobilectl.model.deploy.FirebaseAndroidDestination
+import com.mobilectl.model.deploy.IosDeployConfig
+import com.mobilectl.model.deploy.LocalAndroidDestination
+import com.mobilectl.model.deploy.PlayConsoleAndroidDestination
+import com.mobilectl.model.deploy.TestFlightDestination
+import com.mobilectl.model.versionManagement.VersionConfig
+import com.mobilectl.util.ArtifactDetector
+import com.mobilectl.util.ArtifactType
+import com.mobilectl.util.createFileUtil
+import com.mobilectl.util.createProcessExecutor
+import java.io.File
+import java.io.PrintWriter
+import java.nio.charset.StandardCharsets
+
+class DeployHandler(
+    private val platform: String?,
+    private val destination: String?,
+    private val environment: String?,
+    private val releaseNotes: String?,
+    private val testGroups: String?,
+    private val verbose: Boolean,
+    private val dryRun: Boolean,
+    private val skipBuild: Boolean,
+    private val interactive: Boolean,
+    private val confirm: Boolean
+) {
+    private val out = PrintWriter(System.out, true, StandardCharsets.UTF_8)
+    private val workingPath = System.getProperty("user.dir")
+
+    suspend fun execute() {
+        try {
+            if (!File(workingPath).exists()) {
+                out.println("❌ Directory does not exist: $workingPath")
+                return
+            }
+
+            val baseConfig = loadConfigOrUseDefaults()
+            var config = applyCommandLineOverrides(baseConfig)
+
+            if (interactive) {
+                config = runInteractiveWizard(config) ?: return
+            }
+
+            val targetPlatforms = parsePlatforms(platform, config)
+            if (targetPlatforms == null) {
+                out.println("❌ Could not determine platforms")
+                return
+            }
+
+            val actualEnvironment = environment ?: detectEnvironment()
+
+            printSummary(targetPlatforms, actualEnvironment)
+
+            if (!confirm && !dryRun && !interactive) {
+                if (!askForConfirmation()) {
+                    out.println("⏭️  Deployment cancelled")
+                    return
+                }
+            }
+
+            if (dryRun) {
+                out.println("📋 DRY-RUN mode - nothing will be deployed")
+                showDryRunDetails(config, targetPlatforms, actualEnvironment)
+                return
+            }
+
+            // Build if needed (based on source changes)
+            if (!skipBuild) {
+                val needsBuild = checkIfBuildNeeded(config, targetPlatforms)
+                if (needsBuild) {
+                    out.println()
+                    out.println("🏗️  Building artifacts...")
+                    val buildResult = buildArtifacts(config, targetPlatforms)
+
+                    if (!buildResult.success) {
+                        out.println("❌ Build failed!")
+                        return
+                    }
+                } else {
+                    out.println()
+                    out.println("✅ Artifacts up-to-date (no source changes detected)")
+                }
+            }
+
+            executeDeploy(config, targetPlatforms, actualEnvironment)
+
+        } catch (e: Exception) {
+            out.println("❌ Error: ${e.message}")
+            if (verbose) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    /**
+     * Check if build is needed by comparing git timestamps
+     */
+    private fun checkIfBuildNeeded(config: Config, platforms: Set<Platform>): Boolean {
+        platforms.forEach { platform ->
+            val artifactPath = when (platform) {
+                Platform.ANDROID -> config.deploy?.android?.artifactPath
+                Platform.IOS -> config.deploy?.ios?.artifactPath
+                else -> null
+            } ?: return true
+
+            val artifact = if (File(artifactPath).isAbsolute) {
+                File(artifactPath)
+            } else {
+                File(File(workingPath), artifactPath)
+            }
+
+            // If artifact doesn't exist, need to build
+            if (!artifact.exists()) {
+                if (verbose) {
+                    out.println("ℹ️  Artifact missing: $artifactPath")
+                }
+                return true
+            }
+
+            // Check if source files are newer than artifact
+            val artifactTime = artifact.lastModified()
+            val sourceHasChanges = hasSourceChanges(artifactTime, platform)
+
+            if (sourceHasChanges) {
+                if (verbose) {
+                    out.println("ℹ️  Source files modified since last build")
+                }
+                return true
+            }
+        }
+
+        return false
+    }
+
+    /**
+     * Check if source has been modified since artifact was built
+     * Platform-specific checking
+     */
+    private fun hasSourceChanges(lastArtifactTime: Long, platform: Platform): Boolean {
+        return try {
+            // Try git first (works for both platforms)
+            val process = ProcessBuilder("git", "status", "--porcelain")
+                .directory(File(workingPath))
+                .redirectErrorStream(true)
+                .start()
+
+            val output = process.inputStream.bufferedReader().readText()
+            val exitCode = process.waitFor()
+
+            if (exitCode == 0) {
+                if (output.isNotBlank()) {
+                    if (verbose) {
+                        out.println("   Uncommitted changes detected")
+                    }
+                    return true
+                }
+
+                hasRecentSourceChanges(lastArtifactTime, platform)
+            } else {
+                if (verbose) {
+                    out.println("   Git check failed, assuming rebuild needed")
+                }
+                true
+            }
+
+        } catch (e: Exception) {
+            if (verbose) {
+                out.println("   Fallback: checking file timestamps")
+            }
+            hasRecentSourceChanges(lastArtifactTime, platform)
+        }
+    }
+
+    /**
+     * Check if any platform-specific source files are newer than artifact
+     */
+    private fun hasRecentSourceChanges(lastArtifactTime: Long, platform: Platform): Boolean {
+        val baseDir = File(workingPath)
+
+        val sourcePatterns = when (platform) {
+            Platform.ANDROID -> listOf(
+                // Kotlin/Java source
+                "src/**/*.kt",
+                "src/**/*.java",
+                "app/**/*.kt",
+                "app/**/*.java",
+
+                // Gradle config
+                "build.gradle.kts",
+                "build.gradle",
+                "app/build.gradle.kts",
+                "app/build.gradle",
+                "settings.gradle.kts",
+                "gradle.properties"
+            )
+
+            Platform.IOS -> listOf(
+                // Swift source
+                "ios/**/*.swift",
+                "ios/**/*.h",
+                "ios/**/*.m",
+
+                // Xcode config
+                "ios/**/*.xcconfig",
+                "ios/**/*.pbxproj",
+                "ios/Podfile",
+                "ios/Podfile.lock",
+                "Podfile",
+                "Podfile.lock"
+            )
+
+            else -> emptyList()
+        }
+
+        return sourcePatterns.any { pattern ->
+            val glob = pattern.replace("**", "*")
+            val dir = if (pattern.contains("**")) {
+                baseDir.resolve(pattern.substringBefore("**").trimEnd('/'))
+            } else {
+                baseDir.resolve(pattern)
+            }
+
+            when {
+                dir.isDirectory -> {
+                    dir.walk()
+                        .filter { it.isFile }
+                        .any { it.lastModified() > lastArtifactTime }
+                }
+                dir.isFile -> {
+                    dir.lastModified() > lastArtifactTime
+                }
+                else -> false
+            }
+        }
+    }
+
+
+    /**
+     * Check if any source files are newer than artifact
+     * Supports Android and iOS
+     */
+    private fun hasRecentSourceChanges(lastArtifactTime: Long): Boolean {
+        val sourcePatterns = listOf(
+            // Android
+            "src/**/*.kt",
+            "src/**/*.java",
+            "app/**/*.kt",
+            "app/**/*.java",
+            "build.gradle.kts",
+            "build.gradle",
+            "settings.gradle.kts",
+            "gradle.properties",
+            "app/build.gradle.kts",
+            "app/build.gradle",
+
+            // iOS
+            "ios/**/*.swift",
+            "ios/**/*.h",
+            "ios/**/*.m",
+            "ios/**/*.xcconfig",
+            "ios/**/*.pbxproj",
+            "Podfile",
+            "Podfile.lock"
+        )
+
+        val baseDir = File(workingPath)
+
+        return sourcePatterns.any { pattern ->
+            val dir = if (pattern.contains("**")) {
+                baseDir.resolve(pattern.substringBefore("**"))
+            } else {
+                baseDir.resolve(pattern)
+            }
+
+            if (dir.isDirectory) {
+                dir.walk()
+                    .filter { it.isFile }
+                    .any { it.lastModified() > lastArtifactTime }
+            } else if (dir.isFile) {
+                dir.lastModified() > lastArtifactTime
+            } else {
+                false
+            }
+        }
+    }
+
+
+    /**
+     * Build using existing BuildOrchestrator
+     */
+    private suspend fun buildArtifacts(
+        config: Config,
+        platforms: Set<Platform>
+    ): BuildResult {
+        return try {
+            val detector = createProjectDetector()
+            val processExecutor = createProcessExecutor()
+            val androidBuilder = AndroidBuilder(processExecutor)
+            val iosBuilder = IosBuilder(processExecutor)
+            val buildManager = JvmBuildManager(androidBuilder, iosBuilder)
+            val orchestrator = BuildOrchestrator(detector, buildManager)
+
+            val result = orchestrator.build(
+                config = config,
+                platforms = platforms,
+                verbose = verbose,
+                dryRun = false
+            )
+
+            if (result.success) {
+                out.println("✅ Build completed successfully")
+                result.outputs.forEach { output ->
+                    if (output.success && output.outputPath != null) {
+                        out.println("   📦 ${output.platform}: ${output.outputPath}")
+                    }
+                }
+            } else {
+                out.println("❌ Build failed")
+            }
+
+            result
+        } catch (e: Exception) {
+            out.println("❌ Build error: ${e.message}")
+            if (verbose) {
+                e.printStackTrace()
+            }
+            BuildResult(success = false, outputs = emptyList())
+        }
+    }
+
+
+    /**
+     * Load config from file or create smart defaults
+     */
+    private suspend fun loadConfigOrUseDefaults(): Config {
+        val configFile = File(workingPath, "mobilectl.yaml")
+
+        return if (configFile.exists()) {
+            try {
+                val fileUtil = createFileUtil()
+                val detector = createProjectDetector()
+                val configLoader = ConfigLoader(fileUtil, detector)
+                val configResult = configLoader.loadConfig(configFile.absolutePath)
+
+                configResult.getOrNull() ?: createSmartDefaults()
+            } catch (e: Exception) {
+                if (verbose) {
+                    out.println("⚠️  Failed to load config: ${e.message}")
+                }
+                createSmartDefaults()
+            }
+        } else {
+            if (verbose) {
+                out.println("ℹ️  No config file found, using auto-detected defaults")
+            }
+            createSmartDefaults()
+        }
+    }
+
+    /**
+     * Apply command-line overrides to config
+     * PRIORITY: Command-line args > Config file > Defaults
+     */
+    private fun applyCommandLineOverrides(config: Config): Config {
+        var updatedConfig = config
+
+        // Override release notes
+        if (releaseNotes != null) {
+            updatedConfig = updatedConfig.copy(
+                deploy = updatedConfig.deploy.copy(
+                    android = updatedConfig.deploy.android?.copy(
+                        firebase = updatedConfig.deploy.android?.firebase?.copy(releaseNotes = releaseNotes) ?: FirebaseAndroidDestination(releaseNotes = releaseNotes)
+                    ),
+                    ios = updatedConfig.deploy.ios
+                )
+            )
+
+            // Apply to both platforms
+            updatedConfig.deploy.android?.firebase?.let { firebase ->
+                updatedConfig = updatedConfig.copy(
+                    deploy = updatedConfig.deploy.copy(
+                        android = updatedConfig.deploy.android?.copy(
+                            firebase = firebase
+                        )
+                    )
+                )
+            }
+        }
+
+        // Override test groups
+        if (testGroups != null) {
+            val groups = testGroups.split(",").map { it.trim() }
+            updatedConfig = updatedConfig.copy(
+                deploy = updatedConfig.deploy.copy(
+                    android = updatedConfig.deploy.android?.copy(
+                        firebase = updatedConfig.deploy.android?.firebase?.copy(
+                            testGroups = groups
+                        ) ?: FirebaseAndroidDestination()
+                    )
+                )
+            )
+        }
+
+        // Override destination (enable/disable specific destinations)
+        if (destination != null) {
+            updatedConfig = applyDestinationOverride(updatedConfig, destination)
+        }
+
+        return updatedConfig
+    }
+
+    /**
+     * Apply destination override (enable only specified destination)
+     */
+    private fun applyDestinationOverride(config: Config, dest: String): Config {
+        val normalizedDest = dest.lowercase()
+
+        var updatedConfig = config
+
+        // Android destinations
+        updatedConfig.deploy.android?.let { android ->
+            updatedConfig = updatedConfig.copy(
+                deploy = updatedConfig.deploy.copy(
+                    android = android.copy(
+                        firebase = android.firebase.copy(enabled = normalizedDest == "firebase"),
+                        playConsole = android.playConsole.copy(enabled = normalizedDest == "play-console"),
+                        local = android.local.copy(enabled = normalizedDest == "local")
+                    )
+                )
+            )
+        }
+
+        // iOS destinations
+        updatedConfig.deploy.ios?.let { ios ->
+            updatedConfig = updatedConfig.copy(
+                deploy = updatedConfig.deploy.copy(
+                    ios = ios.copy(
+                        testflight = ios.testflight.copy(enabled = normalizedDest == "testflight"),
+                        appStore = ios.appStore.copy(enabled = normalizedDest == "app-store")
+                    )
+                )
+            )
+        }
+
+        return updatedConfig
+    }
+
+    private fun parsePlatforms(platformArg: String?, config: Config): Set<Platform>? {
+        return when {
+            platformArg != null -> {
+                when (platformArg) {
+                    "all" -> setOf(Platform.ANDROID, Platform.IOS)
+                    "android" -> setOf(Platform.ANDROID)
+                    "ios" -> setOf(Platform.IOS)
+                    else -> {
+                        out.println("❌ Unknown platform: $platformArg. Use 'android', 'ios', or 'all'")
+                        null
+                    }
+                }
+            }
+            else -> {
+                // Auto-detect from config
+                val detected = mutableSetOf<Platform>()
+                if (config.deploy?.android?.enabled == true) {
+                    detected.add(Platform.ANDROID)
+                }
+                if (config.deploy?.ios?.enabled == true) {
+                    detected.add(Platform.IOS)
+                }
+
+                if (detected.isEmpty()) {
+                    out.println("❌ No platforms detected. Specify 'android', 'ios', or 'all'")
+                    null
+                } else {
+                    detected
+                }
+            }
+        }
+    }
+
+    private fun showDryRunDetails(config: Config, platforms: Set<Platform>, env: String) {
+        out.println()
+        out.println("📋 Deployment Plan:")
+        out.println()
+
+        platforms.forEach { platform ->
+            when (platform) {
+                Platform.ANDROID -> showAndroidPlan(config, env)
+                Platform.IOS -> showIosPlan(config, env)
+                else -> {}
+            }
+        }
+    }
+
+    private fun showAndroidPlan(config: Config, env: String) {
+        out.println("📱 Android:")
+
+        val androidConfig = config.deploy?.android
+        if (androidConfig == null) {
+            out.println("   ⚠️  No Android deployment configured")
+            return
+        }
+
+        if (androidConfig.firebase.enabled) {
+            out.println("   ✓ Firebase App Distribution")
+            out.println("     - Service Account: ${androidConfig.firebase.serviceAccount}")
+            out.println("     - Test Groups: ${androidConfig.firebase.testGroups.joinToString()}")
+        }
+
+        if (androidConfig.playConsole.enabled) {
+            out.println("   ✓ Google Play Console")
+        }
+
+        if (androidConfig.local.enabled) {
+            out.println("   ✓ Local filesystem")
+            out.println("     - Output: ${androidConfig.local.outputDir}")
+        }
+
+        out.println()
+    }
+
+    private fun showIosPlan(config: Config, env: String) {
+        out.println("🍎 iOS:")
+        val iosConfig = config.deploy?.ios
+        if (iosConfig == null) {
+            out.println("   ⚠️  No iOS deployment configured")
+            return
+        }
+
+        if (iosConfig.testflight.enabled) {
+            out.println("   ✓ TestFlight")
+        }
+
+        if (iosConfig.appStore.enabled) {
+            out.println("   ✓ App Store")
+        }
+
+        out.println()
+    }
+
+    private suspend fun executeDeploy(config: Config, platforms: Set<Platform>, env: String) {
+        out.println("🚀 Starting deployment...")
+        out.println()
+
+        val orchestrator = DeployOrchestrator()
+        val baseDir = File(workingPath)
+        val allResults = mutableListOf<DeployResult>()
+
+        platforms.forEach { platform ->
+            when (platform) {
+                Platform.ANDROID -> {
+                    val androidConfig = config.deploy?.android
+                    if (androidConfig != null && androidConfig.enabled) {
+                        val artifactFile = ArtifactDetector.resolveArtifact(
+                            path = androidConfig.artifactPath,
+                            artifactType = ArtifactType.APK,
+                            baseDir = baseDir
+                        )
+
+                        if (artifactFile == null) {
+                            out.println("❌ Android artifact not found!")
+                            return@forEach
+                        }
+
+                        val deploymentResults = orchestrator.deployAndroid(
+                            androidConfig,
+                            artifactFile.absolutePath
+                        )
+                        allResults.addAll(deploymentResults.individual)
+                    }
+                }
+                Platform.IOS -> {
+                    val iosConfig = config.deploy?.ios
+                    if (iosConfig != null && iosConfig.enabled) {
+                        val artifactFile = ArtifactDetector.resolveArtifact(
+                            path = iosConfig.artifactPath,
+                            artifactType = ArtifactType.IPA,
+                            baseDir = baseDir
+                        )
+
+                        if (artifactFile == null) {
+                            out.println("❌ iOS artifact not found!")
+                            return@forEach
+                        }
+
+                        val deploymentResults = orchestrator.deployIos(
+                            iosConfig,
+                            artifactFile.absolutePath
+                        )
+                        allResults.addAll(deploymentResults.individual)
+                    }
+                }
+                else -> {}
+            }
+        }
+
+        printDeployResults(allResults, verbose, workingPath)
+    }
+
+    private fun resolveArtifactPath(path: String): File {
+        return if (File(path).isAbsolute) {
+            File(path)
+        } else {
+            File(workingPath, path)
+        }
+    }
+
+    private fun createSmartDefaults(): Config {
+        val baseDir = File(workingPath)
+
+        val firebaseConfig = autoDetectFirebaseConfig()
+
+        val androidArtifact = ArtifactDetector.resolveArtifact(
+            path = null,
+            artifactType = ArtifactType.APK,
+            baseDir = baseDir
+        )
+
+        if (androidArtifact != null && ArtifactDetector.isDebugBuild(androidArtifact)) {
+            out.println("⚠️  WARNING: Debug APK detected!")
+            out.println("   This is meant for testing only")
+            out.println("   For production, build a release APK: ./gradlew assembleRelease")
+            out.println()
+        }
+
+        val iosArtifact = ArtifactDetector.resolveArtifact(
+            path = null,
+            artifactType = ArtifactType.IPA,
+            baseDir = baseDir
+        )
+
+        val androidArtifactPath = androidArtifact?.absolutePath
+            ?: "build/outputs/apk/release/app-release.apk"
+
+        val iosArtifactPath = iosArtifact?.absolutePath
+            ?: "build/outputs/ipa/release/app.ipa"
+
+        if (verbose) {
+            if (androidArtifact != null) {
+                out.println("✓ Auto-detected Android artifact: ${androidArtifact.name}")
+            }
+            if (iosArtifact != null) {
+                out.println("✓ Auto-detected iOS artifact: ${iosArtifact.name}")
+            }
+        }
+
+        val androidConfig = AndroidDeployConfig(
+            enabled = true,
+            artifactPath = androidArtifactPath,
+            firebase = firebaseConfig,
+            playConsole = PlayConsoleAndroidDestination(enabled = false),
+            local = LocalAndroidDestination(enabled = false)
+        )
+
+        val iosConfig = IosDeployConfig(
+            enabled = false,
+            artifactPath = iosArtifactPath,
+            testflight = TestFlightDestination(enabled = false),
+            appStore = AppStoreDestination(enabled = false)
+        )
+
+        val deployConfig = DeployConfig(
+            android = androidConfig,
+            ios = iosConfig
+        )
+
+        return Config(
+            version = VersionConfig(),
+            build = BuildConfig(),
+            deploy = deployConfig
+        )
+    }
+
+    private fun autoDetectFirebaseConfig(): FirebaseAndroidDestination {
+        return try {
+            val googleServicesFile = findGoogleServicesJson()
+            val serviceAccountFile = findServiceAccountJson()
+
+            if (serviceAccountFile == null) {
+                if (verbose) {
+                    out.println("ℹ️  Firebase: Service account not found (will fail at deploy)")
+                }
+                return FirebaseAndroidDestination(
+                    enabled = true,
+                    serviceAccount = "credentials/firebase-service-account.json"
+                )
+            }
+
+            if (verbose) {
+                out.println("✓ Auto-detected Firebase: ${serviceAccountFile.absolutePath}")
+                if (googleServicesFile != null) {
+                    out.println("✓ Auto-detected google-services.json: ${googleServicesFile.absolutePath}")
+                }
+            }
+
+            FirebaseAndroidDestination(
+                enabled = true,
+                serviceAccount = serviceAccountFile.absolutePath,
+                googleServices = googleServicesFile?.absolutePath
+            )
+
+        } catch (e: Exception) {
+            if (verbose) {
+                out.println("⚠️  Firebase auto-detection failed: ${e.message}")
+            }
+            FirebaseAndroidDestination()
+        }
+    }
+
+    private fun findGoogleServicesJson(): File? {
+        val knownPaths = listOf(
+            "app/google-services.json",
+            "app/src/main/google-services.json",
+            "google-services.json"
+        )
+        return knownPaths
+            .map { File(workingPath, it) }
+            .firstOrNull { it.exists() }
+    }
+
+    private fun findServiceAccountJson(): File? {
+        val knownPaths = listOf(
+            "credentials/firebase-service-account.json",
+            "credentials/firebase-account.json",
+            "credentials/account.json",
+            "firebase-service-account.json",
+            "firebase-account.json"
+        )
+        return knownPaths
+            .map { File(workingPath, it) }
+            .firstOrNull { it.exists() }
+    }
+
+    private fun detectEnvironment(): String {
+        return try {
+            val process = ProcessBuilder("git", "branch", "--show-current")
+                .redirectErrorStream(true)
+                .start()
+            val branch = process.inputStream.bufferedReader().readText().trim()
+            process.waitFor()
+
+            when {
+                branch == "main" || branch == "master" -> "production"
+                branch.startsWith("staging") -> "staging"
+                else -> "dev"
+            }
+        } catch (e: Exception) {
+            "dev"
+        }
+    }
+
+    private fun printSummary(targetPlatforms: Set<Platform>, env: String) {
+        out.println("🚀 Deploying to: ${targetPlatforms.joinToString(", ") { it.name }}")
+        out.println("🌍 Environment: $env")
+
+        if (destination != null) {
+            out.println("📍 Destination: $destination")
+        }
+
+        if (releaseNotes != null) {
+            out.println("📝 Release notes: $releaseNotes")
+        }
+
+        if (testGroups != null) {
+            out.println("👥 Test groups: $testGroups")
+        }
+
+        if (skipBuild) {
+            out.println("⏭️  Skipping build (using existing artifacts)")
+        }
+
+        out.println()
+    }
+
+
+    /**
+     * Run interactive deployment wizard
+     */
+    private fun runInteractiveWizard(baseConfig: Config): Config? {
+        val wizard = InteractiveDeploymentWizard(out)
+
+        val availablePlatforms = mutableSetOf<Platform>()
+        if (baseConfig.deploy?.android?.enabled == true) availablePlatforms.add(Platform.ANDROID)
+        if (baseConfig.deploy?.ios?.enabled == true) availablePlatforms.add(Platform.IOS)
+
+        // Step 1: Select platforms
+        val selectedPlatforms = wizard.selectPlatforms(availablePlatforms) ?: return null
+
+        // Step 2: Select destinations per platform
+        val destinationMap = mutableMapOf<Platform, List<String>>()
+
+        selectedPlatforms.forEach { platform ->
+            val availableDests = when (platform) {
+                Platform.ANDROID -> AvailableDestinations.forAndroid()
+                Platform.IOS -> AvailableDestinations.forIos()
+                else -> emptyList()
+            }
+
+            val selectedDests = wizard.selectDestinations(platform, availableDests) ?: emptyList()
+            if (selectedDests.isNotEmpty()) {
+                destinationMap[platform] = selectedDests
+            }
+        }
+
+        if (destinationMap.isEmpty()) {
+            out.println("❌ No destinations selected")
+            return null
+        }
+
+        // Step 3: Get optional parameters
+        val newReleaseNotes = wizard.getReleaseNotes(releaseNotes)
+        val newTestGroups = wizard.getTestGroups(
+            testGroups?.split(",")?.map { it.trim() } ?: emptyList()
+        )
+
+        // Step 4: Confirm
+        val confirmed = wizard.confirmDeployment(
+            platforms = selectedPlatforms,
+            destinations = destinationMap,
+            releaseNotes = newReleaseNotes,
+            testGroups = newTestGroups,
+            environment = environment ?: detectEnvironment()
+        )
+
+        if (!confirmed) {
+            out.println("⏭️  Deployment cancelled")
+            return null
+        }
+
+        // Apply interactive selections to config
+        var config = baseConfig
+
+        // Update destinations
+        selectedPlatforms.forEach { platform ->
+            val destinations = destinationMap[platform] ?: emptyList()
+
+            when (platform) {
+                Platform.ANDROID -> {
+                    val androidConfig = config.deploy.android ?: return@forEach
+                    config = config.copy(
+                        deploy = config.deploy.copy(
+                            android = androidConfig.copy(
+                                firebase = androidConfig.firebase.copy(
+                                    enabled = "firebase" in destinations
+                                ),
+                                playConsole = androidConfig.playConsole.copy(
+                                    enabled = "play-console" in destinations
+                                ),
+                                local = androidConfig.local.copy(
+                                    enabled = "local" in destinations
+                                )
+                            )
+                        )
+                    )
+                }
+                Platform.IOS -> {
+                    val iosConfig = config.deploy.ios ?: return@forEach
+                    config = config.copy(
+                        deploy = config.deploy.copy(
+                            ios = iosConfig.copy(
+                                testflight = iosConfig.testflight.copy(
+                                    enabled = "testflight" in destinations
+                                ),
+                                appStore = iosConfig.appStore.copy(
+                                    enabled = "app-store" in destinations
+                                )
+                            )
+                        )
+                    )
+                }
+                else -> {}
+            }
+        }
+
+        // Apply new parameters
+        if (newReleaseNotes != null) {
+            // Store for later use in deployment
+            // (You might want to pass this separately)
+        }
+
+        return config
+    }
+
+    private fun askForConfirmation(): Boolean {
+        out.println()
+        out.print("? Proceed with deployment? (Y/n) ")
+        out.flush()
+
+        val input = readLine()?.trim()?.lowercase() ?: "y"
+        return input != "n" && input != "no"
+    }
+}

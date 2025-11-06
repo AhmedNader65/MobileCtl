@@ -25,6 +25,14 @@ tasks.jar {
     }
     from(configurations.runtimeClasspath.get()
         .map { if (it.isDirectory) it else zipTree(it) })
+
+    // Exclude signature files that cause conflicts
+    exclude("META-INF/*.SF")
+    exclude("META-INF/*.DSA")
+    exclude("META-INF/*.RSA")
+    exclude("META-INF/LICENSE*")
+    exclude("META-INF/NOTICE*")
+
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     archiveFileName.set("mobilectl.jar")
 }
