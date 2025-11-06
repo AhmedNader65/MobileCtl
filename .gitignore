@@ -64,3 +64,8 @@ native/build/
 !*.xcworkspace/contents.xcworkspacedata
 **/xcshareddata/WorkspaceSettings.xcsettings
 .externalNativeBuild
+# Documentation site
+node_modules/
+website/.vitepress/dist/
+website/.vitepress/cache/
+.DS_Store
