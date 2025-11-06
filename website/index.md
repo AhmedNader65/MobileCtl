@@ -68,23 +68,29 @@ features:
 
 ## Why MobileCtl?
 
-Mobile app deployment shouldn't be complicated. **MobileCtl** simplifies your entire DevOps pipeline:
+Mobile app deployment shouldn't be complicated. **MobileCtl** simplifies your entire DevOps pipeline into **one command**:
 
 ```bash
-# Bump version
-mobilectl version bump patch
-
-# Generate changelog
-mobilectl changelog generate
-
-# Build for all platforms
-mobilectl build all
-
-# Deploy to Firebase & TestFlight
-mobilectl deploy --all-flavors
+# Complete release: version bump + changelog + build + deploy
+mobilectl deploy --bump-version patch --changelog --all-flavors
 ```
 
-That's it. **Four commands** to go from code to production.
+That's it. **One command** to go from code to production.
+
+The `deploy` command intelligently:
+- 🔢 Bumps version if you specify `--bump-version`
+- 📝 Generates changelog if you add `--changelog` (or `-C`)
+- 🏗️ Builds your apps automatically (unless you add `--skip-build`)
+- 📦 Deploys to all configured destinations
+
+Or use commands separately for more control:
+
+```bash
+mobilectl version bump patch     # Manual version control
+mobilectl changelog generate     # Separate changelog step
+mobilectl build all             # Build only
+mobilectl deploy --all-flavors  # Deploy existing builds
+```
 
 ## Key Features
 
