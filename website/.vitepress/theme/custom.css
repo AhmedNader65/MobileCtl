@@ -1,0 +1,312 @@
+/**
+ * Premium Custom Theme for MobileCtl
+ * Modern, clean, and professional design
+ */
+
+:root {
+  /* Brand Colors - Premium Blue & Purple Gradient */
+  --vp-c-brand-1: #646cff;
+  --vp-c-brand-2: #747bff;
+  --vp-c-brand-3: #535bf2;
+  --vp-c-brand-soft: rgba(100, 108, 255, 0.14);
+
+  /* Accent Colors */
+  --vp-c-accent-1: #7c3aed;
+  --vp-c-accent-2: #8b5cf6;
+  --vp-c-accent-soft: rgba(139, 92, 246, 0.14);
+
+  /* Success/Info Colors */
+  --vp-c-success-1: #10b981;
+  --vp-c-success-soft: rgba(16, 185, 129, 0.14);
+  --vp-c-warning-1: #f59e0b;
+  --vp-c-warning-soft: rgba(245, 158, 11, 0.14);
+
+  /* Typography */
+  --vp-font-family-base: 'Inter var', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  --vp-font-family-mono: 'JetBrains Mono', 'Fira Code', Menlo, Monaco, Consolas, 'Courier New', monospace;
+
+  /* Shadows - Premium depth */
+  --vp-shadow-1: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --vp-shadow-2: 0 3px 12px rgba(0, 0, 0, 0.07);
+  --vp-shadow-3: 0 12px 32px rgba(0, 0, 0, 0.1);
+  --vp-shadow-4: 0 14px 44px rgba(0, 0, 0, 0.12);
+  --vp-shadow-5: 0 18px 56px rgba(0, 0, 0, 0.16);
+}
+
+.dark {
+  --vp-c-brand-1: #747bff;
+  --vp-c-brand-2: #646cff;
+  --vp-c-brand-3: #535bf2;
+  --vp-c-brand-soft: rgba(116, 123, 255, 0.16);
+
+  --vp-c-accent-1: #a78bfa;
+  --vp-c-accent-2: #8b5cf6;
+}
+
+/* Hero Section - Ultra Premium */
+.VPHero {
+  padding: 80px 24px 48px !important;
+}
+
+.VPHero .name {
+  background: linear-gradient(135deg, var(--vp-c-brand-1) 0%, var(--vp-c-accent-1) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: 56px !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.02em;
+  line-height: 1.1 !important;
+}
+
+.VPHero .tagline {
+  font-size: 24px !important;
+  font-weight: 500;
+  color: var(--vp-c-text-2);
+  line-height: 1.6;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.VPHero .actions {
+  padding-top: 32px !important;
+  gap: 16px !important;
+}
+
+.VPButton {
+  border-radius: 12px !important;
+  padding: 14px 32px !important;
+  font-weight: 600 !important;
+  font-size: 16px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: var(--vp-shadow-2);
+}
+
+.VPButton.brand {
+  background: linear-gradient(135deg, var(--vp-c-brand-1) 0%, var(--vp-c-accent-1) 100%) !important;
+  border: none !important;
+}
+
+.VPButton.brand:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--vp-shadow-4);
+}
+
+.VPButton.alt {
+  border: 2px solid var(--vp-c-brand-1) !important;
+  background: transparent !important;
+}
+
+.VPButton.alt:hover {
+  background: var(--vp-c-brand-soft) !important;
+  transform: translateY(-2px);
+}
+
+/* Feature Grid - Premium Cards */
+.VPFeature {
+  border-radius: 16px !important;
+  border: 1px solid var(--vp-c-divider) !important;
+  background: var(--vp-c-bg-soft) !important;
+  padding: 32px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  height: 100%;
+}
+
+.VPFeature:hover {
+  border-color: var(--vp-c-brand-1) !important;
+  box-shadow: var(--vp-shadow-3);
+  transform: translateY(-4px);
+}
+
+.VPFeature .icon {
+  font-size: 36px !important;
+  margin-bottom: 16px;
+}
+
+.VPFeature .title {
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  margin-bottom: 12px;
+  color: var(--vp-c-text-1);
+}
+
+.VPFeature .details {
+  font-size: 15px !important;
+  line-height: 1.7;
+  color: var(--vp-c-text-2);
+}
+
+/* Code Blocks - Enhanced */
+div[class*='language-'] {
+  border-radius: 12px !important;
+  margin: 24px 0 !important;
+  box-shadow: var(--vp-shadow-2);
+  border: 1px solid var(--vp-c-divider);
+}
+
+div[class*='language-']:hover {
+  box-shadow: var(--vp-shadow-3);
+}
+
+div[class*='language-'] code {
+  font-family: var(--vp-font-family-mono) !important;
+  font-size: 14px !important;
+  line-height: 1.7;
+}
+
+/* Custom Containers */
+.custom-block {
+  border-radius: 12px !important;
+  padding: 20px 24px !important;
+  margin: 24px 0 !important;
+  border-left: 4px solid !important;
+  box-shadow: var(--vp-shadow-1);
+}
+
+.custom-block.tip {
+  border-left-color: var(--vp-c-brand-1) !important;
+  background: var(--vp-c-brand-soft) !important;
+}
+
+.custom-block.warning {
+  border-left-color: var(--vp-c-warning-1) !important;
+  background: var(--vp-c-warning-soft) !important;
+}
+
+.custom-block.danger {
+  border-left-color: var(--vp-c-danger-1) !important;
+  background: var(--vp-c-danger-soft) !important;
+}
+
+.custom-block.info {
+  border-left-color: var(--vp-c-success-1) !important;
+  background: var(--vp-c-success-soft) !important;
+}
+
+/* Navigation - Premium Polish */
+.VPNav {
+  backdrop-filter: blur(12px);
+  box-shadow: var(--vp-shadow-1);
+}
+
+.VPNavBar {
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+
+/* Sidebar - Enhanced */
+.VPSidebar {
+  border-right: 1px solid var(--vp-c-divider);
+  padding: 32px 0;
+}
+
+.VPSidebarItem.is-active > .item > .link {
+  color: var(--vp-c-brand-1) !important;
+  font-weight: 600;
+}
+
+/* Tables - Beautiful */
+table {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--vp-shadow-2);
+  border: 1px solid var(--vp-c-divider);
+}
+
+thead {
+  background: var(--vp-c-bg-soft);
+}
+
+th {
+  font-weight: 700;
+  padding: 16px !important;
+  border-bottom: 2px solid var(--vp-c-brand-1) !important;
+}
+
+td {
+  padding: 14px !important;
+}
+
+tr:hover {
+  background: var(--vp-c-bg-soft);
+}
+
+/* Badges */
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  margin: 0 4px;
+}
+
+.badge.tip {
+  background: var(--vp-c-brand-soft);
+  color: var(--vp-c-brand-1);
+}
+
+.badge.warning {
+  background: var(--vp-c-warning-soft);
+  color: var(--vp-c-warning-1);
+}
+
+.badge.danger {
+  background: var(--vp-c-danger-soft);
+  color: var(--vp-c-danger-1);
+}
+
+/* Footer */
+.VPFooter {
+  border-top: 1px solid var(--vp-c-divider);
+  padding: 32px 24px !important;
+  margin-top: 64px;
+}
+
+/* Smooth Scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Link Enhancements */
+.vp-doc a {
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.vp-doc a:hover {
+  color: var(--vp-c-brand-2);
+  text-decoration-thickness: 2px;
+}
+
+/* Responsive Enhancements */
+@media (min-width: 768px) {
+  .VPHero .name {
+    font-size: 72px !important;
+  }
+
+  .VPHero .tagline {
+    font-size: 28px !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .VPHero .name {
+    font-size: 84px !important;
+  }
+}
+
+/* Loading Animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.vp-doc > * {
+  animation: fadeIn 0.5s ease-out;
+}
