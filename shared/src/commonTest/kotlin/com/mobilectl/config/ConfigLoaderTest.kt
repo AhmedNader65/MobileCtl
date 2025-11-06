@@ -64,7 +64,7 @@ class ConfigLoaderTest {
                   emoji: "✨"
         """.trimIndent()
 
-        val testFile = testDir.resolve("valid.yml")
+        val testFile = testDir.resolve("valid.yaml")
         testFile.parentFile?.mkdirs()
         testFile.writeText(yamlContent)
 
@@ -87,7 +87,7 @@ class ConfigLoaderTest {
                 default_type: ""
         """.trimIndent()
 
-        val testFile = testDir.resolve("invalid.yml")
+        val testFile = testDir.resolve("invalid.yaml")
         testFile.parentFile?.mkdirs()
         testFile.writeText(yamlContent)
 

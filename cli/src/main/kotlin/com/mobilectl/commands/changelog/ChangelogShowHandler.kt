@@ -13,7 +13,7 @@ class ChangelogShowHandler(
 ) {
     private val out = PrintWriter(System.out, true, StandardCharsets.UTF_8)
     private val workingPath = System.getProperty("user.dir")
-    private val configFile = File(workingPath, "mobileops.yml").absolutePath
+    private val configFile = File(workingPath, "mobileops.yaml").absolutePath
 
     suspend fun execute() {
         try {

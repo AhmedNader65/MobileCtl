@@ -14,7 +14,7 @@ class VersionShowHandler(
 ) {
     private val out = PrintWriter(System.out, true, StandardCharsets.UTF_8)
     private val workingPath = System.getProperty("user.dir")
-    private val configFile = File(workingPath, "mobileops.yml").absolutePath
+    private val configFile = File(workingPath, "mobileops.yaml").absolutePath
 
     suspend fun execute() {
         try {
@@ -30,31 +30,28 @@ class VersionShowHandler(
             val detectedVersion = detector.detectVersionFromApp(workingPath)
             val configVersion = configResult.getOrNull()?.version?.current?.let { SemanticVersion.parse(it) }
 
-            // Show versions
+            val items = mutableMapOf<String, String>()
+
             if (detectedVersion != null) {
-                out.println("📱 Detected version: $detectedVersion")
+                items["Detected Version"] = detectedVersion.toString()
             }
 
-            if (configExists && configVersion != null && detectedVersion != configVersion) {
-                out.println("📋 Config version: $configVersion")
-
-                // Warn if mismatch
-                if (detectedVersion != null && detectedVersion.toString() != configVersion.toString()) {
-                    out.println("⚠️  Version mismatch!")
-                    out.println("   App files: $detectedVersion")
-                    out.println("   Config: $configVersion")
-                    out.println("   → Will use app version as source of truth")
-                }
+            if (configExists && configVersion != null) {
+                items["Config Version"] = configVersion.toString()
             } else if (!configExists) {
-                out.println("📋 No mobileops.yml found")
+                items["Config"] = "No mobileops.yaml found"
+            }
+
+            if (detectedVersion != null && configVersion != null && detectedVersion.toString() != configVersion.toString()) {
+                items["Status"] = "⚠️  Version mismatch"
+                items["Will Use"] = "App version ($detectedVersion)"
             }
 
             if (verbose) {
-                out.println("\n📄 Files to update:")
-                out.println("  • mobileops.yml")
-                out.println("  • build.gradle.kts (or build.gradle)")
-                out.println("  • package.json (if exists)")
+                items["Files to Update"] = "mobileops.yaml, build.gradle.kts, package.json"
             }
+
+            com.mobilectl.util.PremiumLogger.box("Version Information", items, success = true)
         } catch (e: Exception) {
             out.println("❌ Error: ${e.message}")
         }

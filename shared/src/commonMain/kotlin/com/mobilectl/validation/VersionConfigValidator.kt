@@ -11,16 +11,7 @@ class VersionConfigValidator : ComponentValidator {
 
         config.version?.let { versionConfig ->
             if (versionConfig.enabled) {
-                if (versionConfig.filesToUpdate.isEmpty()) {
-                    errors.add(ValidationError(
-                        field = "version.filesToUpdate",
-                        message = "At least one file must be specified",
-                        severity = ValidationSeverity.ERROR,
-                        suggestion = "Add files like 'pubspec.yaml', 'package.json', 'build.gradle'"
-                    ))
-                }
-
-                if (versionConfig.bumpStrategy !in listOf("semver", "manual")) {
+                if (versionConfig.bumpStrategy !in listOf("patch", "minor", "major", "auto", "manual")) {
                     errors.add(ValidationError(
                         field = "version.bumpStrategy",
                         message = "Invalid strategy '${versionConfig.bumpStrategy}'",

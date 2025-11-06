@@ -26,7 +26,7 @@ class JvmVersionBackup : VersionBackup {
                 "build.gradle.kts",
                 "build.gradle",
                 "package.json",
-                "mobileops.yml"
+                "mobileops.yaml"
             )
 
             filesToBackup.forEach { fileName ->

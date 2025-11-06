@@ -190,7 +190,7 @@ Useful for:
 
 ## Configuration
 
-Configure builds in `mobileops.yml`:
+Configure builds in `mobileops.yaml`:
 
 ```
 
@@ -316,7 +316,7 @@ mobilectl build android --verbose
 
 # Check configuration
 
-cat mobileops.yml
+cat mobileops.yaml
 
 ```
 
@@ -330,7 +330,7 @@ mobilectl build android my-flavor release
 
 # Or add to config
 
-# mobileops.yml:
+# mobileops.yaml:
 
 # build:
 

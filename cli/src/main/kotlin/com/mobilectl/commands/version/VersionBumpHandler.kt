@@ -16,7 +16,7 @@ class VersionBumpHandler(
 ) {
     private val out = PrintWriter(System.out, true, StandardCharsets.UTF_8)
     private val workingPath = System.getProperty("user.dir")
-    private val configFile = File(workingPath, "mobileops.yml").absolutePath
+    private val configFile = File(workingPath, "mobileops.yaml").absolutePath
 
     suspend fun execute() {
         try {
@@ -41,21 +41,22 @@ class VersionBumpHandler(
 
             val newVersion = currentVersion.bump(level)
 
-            out.println("🔢 Bumping version: $currentVersion → $newVersion")
+            com.mobilectl.util.PremiumLogger.section("Version Bump ($level)")
+            com.mobilectl.util.PremiumLogger.detail("From", currentVersion.toString())
+            com.mobilectl.util.PremiumLogger.detail("To", newVersion.toString())
 
-            // Warn about mismatch
             if (configExists && detectedVersion != null && configVersion != null &&
                 detectedVersion.toString() != configVersion.toString()
             ) {
-                out.println("⚠️  Version mismatch detected!")
-                out.println("   App files: $detectedVersion")
-                out.println("   Config: $configVersion")
-                out.println("   Using app version ($detectedVersion) as source")
+                com.mobilectl.util.PremiumLogger.warning("Version mismatch detected")
+                com.mobilectl.util.PremiumLogger.detail("App Files", detectedVersion.toString(), dim = true)
+                com.mobilectl.util.PremiumLogger.detail("Config", configVersion.toString(), dim = true)
+                com.mobilectl.util.PremiumLogger.detail("Using", "App version ($detectedVersion)", dim = true)
             }
 
             if (verbose) {
                 out.println("\n📄 Files that will be updated:")
-                out.println("  • mobileops.yml")
+                out.println("  • mobileops.yaml")
                 out.println("  • build.gradle.kts")
             }
 
@@ -89,20 +90,23 @@ class VersionBumpHandler(
                 return
             }
 
-            // Print results
-            out.println("\n📝 Files updated: ${result.filesUpdated.size}")
-            result.filesUpdated.forEach { out.println("  ✅ $it") }
+            result.filesUpdated.forEach { file ->
+                com.mobilectl.util.PremiumLogger.success("Updated: $file")
+            }
 
             result.backupResult?.let { backup ->
                 if (backup.success) {
-                    out.println("\n💾 Backup: ${File(backup.backupPath!!).name}")
+                    com.mobilectl.util.PremiumLogger.detail("Backup", File(backup.backupPath!!).name, dim = true)
                     if (backup.gitTagCreated) {
-                        out.println("🏷️  Git tag: v$currentVersion")
+                        com.mobilectl.util.PremiumLogger.detail("Git Tag", "v$currentVersion", dim = true)
                     }
                 }
             }
 
-            out.println("\n✅ Version bumped: $currentVersion → $newVersion")
+            com.mobilectl.util.PremiumLogger.sectionEnd()
+
+            com.mobilectl.util.PremiumLogger.simpleSuccess("Version bumped: $currentVersion → $newVersion")
+            out.println()
         } catch (e: Exception) {
             out.println("❌ Error: ${e.message}")
         }

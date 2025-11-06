@@ -10,7 +10,7 @@ data class AndroidBuildConfig(
     val enabled: Boolean = true,
     var defaultFlavor: String = "",
     var defaultType: String = "release",
-
+    val flavors: List<String> = emptyList(),
     val keyStore: String = "keystore.jks",  // Path to keystore
     val keyAlias: String = "",               // Alias in keystore
     val keyPassword: String = "",            // Key password (from env)

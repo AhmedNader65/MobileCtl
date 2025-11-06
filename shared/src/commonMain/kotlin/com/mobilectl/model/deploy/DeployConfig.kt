@@ -6,7 +6,16 @@ import kotlinx.serialization.Serializable
 data class DeployConfig(
     val enabled: Boolean = false,
     val android: AndroidDeployConfig? = null,
-    val ios: IosDeployConfig? = null
+    val ios: IosDeployConfig? = null,
+    val flavorGroups: Map<String, FlavorGroup> = emptyMap(),
+    val defaultGroup: String? = null
+)
+
+@Serializable
+data class FlavorGroup(
+    val name: String = "",
+    val description: String = "",
+    val flavors: List<String> = emptyList()
 )
 
 @Serializable

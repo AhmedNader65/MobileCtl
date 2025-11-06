@@ -18,7 +18,7 @@ Modern DevOps automation for mobile apps. Build, version, and deploy iOS & Andro
 Coming soon — instructions for Homebrew, direct download, etc.
 
 ### Basic Usage
-Create mobileops.yml in your project root
+Create mobileops.yaml in your project root
 mobilectl build android # Build Android app
 mobilectl version bump # Bump version (major/minor/patch)
 mobilectl changelog generate # Generate changelog
@@ -26,7 +26,7 @@ mobilectl upload --destination firebase # Upload artifact
 
 ## 📋 Configuration
 
-Create `mobileops.yml` in your project root:
+Create `mobileops.yaml` in your project root:
 
 build:
 android:

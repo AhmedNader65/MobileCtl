@@ -69,7 +69,7 @@
 # Resolve links: $0 may be a link
 app_path=$0
 
-# Need this for daisy-chained symlinks.
+# Need this for daisy-chained syamlinks.
 while
     APP_HOME=${app_path%"${app_path##*/}"}  # leaves a trailing /; empty if no leading path
     [ -h "$app_path" ]

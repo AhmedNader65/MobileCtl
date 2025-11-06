@@ -35,7 +35,25 @@ class DeployCommand : CliktCommand(
         "--groups", "-g",
         help = "Comma-separated list of test groups"
     )
+    private val allFlavors by option(
+        "-A", "--all-flavors",
+        help = "Deploy all flavors"
+    ).flag()
 
+    private val group by option(
+        "-G", "--flavor-group",
+        help = "Deploy flavor group: production, testing, etc"
+    )
+
+    private val flavors by option(
+        "-f", "--flavors",
+        help = "Deploy specific flavors (comma-separated)"
+    )
+
+    private val exclude by option(
+        "-E", "--exclude",
+        help = "Exclude flavors (comma-separated)"
+    )
     private val verbose by option(
         "--verbose", "-v",
         help = "Verbose output"
@@ -61,6 +79,17 @@ class DeployCommand : CliktCommand(
         "--confirm", "-y",
         help = "Skip confirmation prompt"
     ).flag()
+
+    // Bump version strategy: major, minor, patch, none
+    private val bumpVersion by option(
+        "--bump-version", "-B",
+        metavar = "STRATEGY",
+        help = "Bump version before deploying (major, minor, patch, none)"
+    )
+    private val changelog by option(
+        "-C", "--changelog",
+        help = "Generate changelog before deploy (auto if bumping version and enabled)"
+    ).flag()
     override fun run() {
         runBlocking {
             DeployHandler(
@@ -73,7 +102,13 @@ class DeployCommand : CliktCommand(
                 dryRun = dryRun,
                 skipBuild = skipBuild,
                 interactive = interactive,
-                confirm = confirm
+                confirm = confirm,
+                bumpVersion = bumpVersion,
+                changelog = changelog,
+                allFlavors = allFlavors,
+                group = group,
+                flavors = flavors,
+                exclude = exclude
             ).execute()
         }
     }

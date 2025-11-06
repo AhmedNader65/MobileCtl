@@ -22,7 +22,7 @@ class BuildHandler(
 ) {
     private val out = PrintWriter(System.out, true, StandardCharsets.UTF_8)
     private val workingPath = System.getProperty("user.dir")
-    private val configFile = File(workingPath, "mobileops.yml").absolutePath
+    private val configFile = File(workingPath, "mobileops.yaml").absolutePath
 
     suspend fun execute() {
         try {
@@ -56,7 +56,7 @@ class BuildHandler(
             printSummary(targetPlatforms)
 
             if (dryRun) {
-                out.println("📋 DRY-RUN mode - nothing will actually be built")
+                com.mobilectl.util.PremiumLogger.simpleInfo("DRY-RUN mode - nothing will actually be built")
                 return
             }
 
@@ -97,13 +97,15 @@ class BuildHandler(
 
     private fun printSummary(targetPlatforms: Set<Platform>?) {
         val target = targetPlatforms?.joinToString(", ") { it.name } ?: "auto-detect"
-        out.println("🏗️  Building: $target")
+        val items = mutableMapOf<String, String>()
+        items["Platforms"] = target
 
         if (verbose) {
-            out.println("🔍 Verbose mode enabled")
-            out.println("   Flavor: $flavor")
-            out.println("   Type: $type")
+            if (flavor != null) items["Flavor"] = flavor!!
+            if (type != null) items["Type"] = type!!
         }
+
+        com.mobilectl.util.PremiumLogger.box("Build Configuration", items, success = true)
     }
 
     private suspend fun executeBuild(
@@ -111,18 +113,13 @@ class BuildHandler(
         targetPlatforms: Set<Platform>?,
         detector: com.mobilectl.detector.ProjectDetector
     ) {
-        out.println("🏗️  Starting build...")
-
-        // Create builders
         val processExecutor = createProcessExecutor()
         val androidBuilder = AndroidBuilder(processExecutor)
         val iosBuilder = IosBuilder(processExecutor)
         val buildManager = JvmBuildManager(androidBuilder, iosBuilder)
 
-        // Create orchestrator
         val orchestrator = BuildOrchestrator(detector, buildManager)
 
-        // Execute build
         val result = orchestrator.build(
             config = config,
             platforms = targetPlatforms,
@@ -130,37 +127,42 @@ class BuildHandler(
             dryRun = false
         )
 
-        // Print results
         printResults(result)
     }
 
     private fun printResults(result: com.mobilectl.builder.BuildResult) {
-        out.println("")
         result.outputs.forEach { output ->
-            val status = if (output.success) "✅" else "❌"
-            out.println("$status ${output.platform.name}: ${output.message}")
+            val items = mutableMapOf<String, String>()
+            items["Platform"] = output.platform.name
+            items["Status"] = output.message
 
             if (verbose) {
                 if (output.outputPath != null) {
-                    out.println("   Output: ${output.outputPath}")
+                    items["Output"] = output.outputPath!!
                 }
                 if (output.durationMs > 0) {
                     val seconds = output.durationMs / 1000.0
-                    out.println("   Duration: ${String.format("%.2f", seconds)}s")
+                    items["Duration"] = "${String.format("%.2f", seconds)}s"
                 }
             }
+
+            com.mobilectl.util.PremiumLogger.box(
+                if (output.success) "Build Successful" else "Build Failed",
+                items,
+                success = output.success
+            )
         }
 
-        out.println("")
         if (result.success) {
-            out.println("✅ ${result.message}")
+            com.mobilectl.util.PremiumLogger.simpleSuccess(result.message)
         } else {
-            out.println("❌ ${result.message}")
+            com.mobilectl.util.PremiumLogger.simpleError(result.message)
         }
 
         if (verbose && result.totalDurationMs > 0) {
             val seconds = result.totalDurationMs / 1000.0
-            out.println("📊 Total time: ${String.format("%.2f", seconds)}s")
+            com.mobilectl.util.PremiumLogger.info("Total time: ${String.format("%.2f", seconds)}s")
         }
+        out.println()
     }
 }

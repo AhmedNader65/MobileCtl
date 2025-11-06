@@ -37,13 +37,55 @@ fun List<ValidationError>.printReport() {
     val warnings = warnings()
 
     if (errors.isNotEmpty()) {
-        println("❌ Configuration errors:")
-        errors.forEach { println("   $it") }
+        val gray = "\u001B[90m"
+        val white = "\u001B[97m"
+        val red = "\u001B[31m"
+        val yellow = "\u001B[33m"
+        val reset = "\u001B[0m"
+        val bold = "\u001B[1m"
+        val dim = "\u001B[2m"
+
+        println()
+        println("$gray┌─────────────────────────────────────────────────────────┐$reset")
+        println("$gray│$reset  $red✗$reset  ${bold}${white}Configuration Errors$reset")
+        println("$gray├─────────────────────────────────────────────────────────┤$reset")
+
+        errors.forEach { error ->
+            println("$gray│$reset")
+            println("$gray│$reset  ${dim}${error.field}$reset")
+            println("$gray│$reset  $red✗$reset  ${error.message}")
+            if (error.suggestion != null) {
+                println("$gray│$reset  ${yellow}💡$reset  ${dim}${error.suggestion}$reset")
+            }
+        }
+
+        println("$gray└─────────────────────────────────────────────────────────┘$reset")
+        println()
     }
 
     if (warnings.isNotEmpty()) {
-        if (errors.isNotEmpty()) println()
-        println("⚠️  Configuration warnings:")
-        warnings.forEach { println("   $it") }
+        val gray = "\u001B[90m"
+        val white = "\u001B[97m"
+        val yellow = "\u001B[33m"
+        val reset = "\u001B[0m"
+        val bold = "\u001B[1m"
+        val dim = "\u001B[2m"
+
+        println()
+        println("$gray┌─────────────────────────────────────────────────────────┐$reset")
+        println("$gray│$reset  $yellow⚠$reset  ${bold}${white}Configuration Warnings$reset")
+        println("$gray├─────────────────────────────────────────────────────────┤$reset")
+
+        warnings.forEach { warning ->
+            println("$gray│$reset")
+            println("$gray│$reset  ${dim}${warning.field}$reset")
+            println("$gray│$reset  $yellow⚠$reset  ${warning.message}")
+            if (warning.suggestion != null) {
+                println("$gray│$reset  ${yellow}💡$reset  ${dim}${warning.suggestion}$reset")
+            }
+        }
+
+        println("$gray└─────────────────────────────────────────────────────────┘$reset")
+        println()
     }
 }

@@ -17,7 +17,7 @@ class VersionConfigValidatorTest {
             version = VersionConfig(
                 enabled = true,
                 current = "1.0.0",
-                bumpStrategy = "semver",
+                bumpStrategy = "patch",
                 filesToUpdate = listOf("pubspec.yaml", "package.json")
             )
         )
@@ -47,7 +47,7 @@ class VersionConfigValidatorTest {
             version = VersionConfig(
                 enabled = true,
                 current = "1.0.0",
-                bumpStrategy = "semver",
+                bumpStrategy = "patch",
                 filesToUpdate = emptyList()
             )
         )
@@ -74,7 +74,7 @@ class VersionConfigValidatorTest {
 
     @Test
     fun testValidBumpStrategies() {
-        listOf("semver", "manual").forEach { strategy ->
+        listOf("patch", "minor", "major", "auto", "manual").forEach { strategy ->
             val config = Config(
                 version = VersionConfig(
                     enabled = true,
@@ -96,7 +96,7 @@ class VersionConfigValidatorTest {
                 version = VersionConfig(
                     enabled = true,
                     current = version,
-                    bumpStrategy = "semver",
+                    bumpStrategy = "patch",
                     filesToUpdate = listOf("pubspec.yaml")
                 )
             )
@@ -125,7 +125,7 @@ class VersionConfigValidatorTest {
                 version = VersionConfig(
                     enabled = true,
                     current = version,
-                    bumpStrategy = "semver",
+                    bumpStrategy = "patch",
                     filesToUpdate = listOf("pubspec.yaml")
                 )
             )
@@ -144,7 +144,7 @@ class VersionConfigValidatorTest {
             version = VersionConfig(
                 enabled = true,
                 current = "invalid-version",
-                bumpStrategy = "semver",
+                bumpStrategy = "patch",
                 filesToUpdate = listOf("pubspec.yaml")
             )
         )
@@ -161,7 +161,7 @@ class VersionConfigValidatorTest {
             version = VersionConfig(
                 enabled = true,
                 current = "1.0.0",
-                bumpStrategy = "semver",
+                bumpStrategy = "patch",
                 filesToUpdate = listOf("pubspec.yaml", "package.json", "build.gradle")
             )
         )

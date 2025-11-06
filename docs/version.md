@@ -54,7 +54,7 @@ Bump your app's version following semantic versioning.<br>
 1. Auto-detects current version from app files
 2. Creates backup with timestamp and git tag
 3. Calculates new version using semantic versioning
-4. Updates all version files (build.gradle, package.json, mobileops.yml, etc)
+4. Updates all version files (build.gradle, package.json, mobileops.yaml, etc)
 5. Reports all changes
 
 **Examples:**
@@ -76,7 +76,7 @@ Bump major version (1.5.0 → 2.0.0):<br>
 ✅ app/build.gradle.kts
 ✅ build.gradle.kts
 ✅ package.json
-✅ mobileops.yml
+✅ mobileops.yaml
 
 💾 Backup: 1.5.0-2025-11-05_12-09-00
 🏷️ Git tag: v1.5.0
@@ -139,10 +139,10 @@ Usage: mobilectl version restore <backup-name>
 
 ## Configuration
 
-Add version configuration to your `mobileops.yml`:
+Add version configuration to your `mobileops.yaml`:
 ```version:
 current: "1.5.0"
-bump_strategy: "semver"
+bump_strategy: "patch"
 files_to_update:
 - "app/build.gradle.kts"
 - "package.json"
@@ -176,11 +176,11 @@ These files are automatically detected and updated:
 - `pubspec.yaml` (version field)
 
 **mobilectl:**
-- `mobileops.yml` (version.current)
+- `mobileops.yaml` (version.current)
 
 ### Custom Files
 
-Add custom files to update in `mobileops.yml`:
+Add custom files to update in `mobileops.yaml`:
 
 ```version:
 files_to_update:
@@ -191,7 +191,7 @@ files_to_update:
 
 ## Version Mismatch
 
-If your app files have a different version than `mobileops.yml`, mobilectl warns you:
+If your app files have a different version than `mobileops.yaml`, mobilectl warns you:
 ```⚠️ Version mismatch!
 App files: 1.5.0
 Config: 1.0.0
@@ -239,7 +239,7 @@ Backups are stored in `.mobilectl/backups/`:
 │ ├── app/build.gradle.kts
 │ ├── build.gradle.kts
 │ ├── package.json
-│ └── mobileops.yml
+│ └── mobileops.yaml
 ├── 1.4.9-2025-11-05_11-30-00/
 │ └── ...
 └── 1.4.8-2025-11-04_09-15-00/
@@ -304,7 +304,7 @@ mobilectl version show --verbose
 
 **Files not updated:**
 Check file permissions
-Add files to mobileops.yml:
+Add files to mobileops.yaml:
 version:
 files_to_update:
 - "path/to/my/version/file"

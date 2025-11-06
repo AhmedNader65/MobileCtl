@@ -92,7 +92,6 @@ class SnakeYamlConfigParser : ConfigParser {
 
     private fun convertToAndroidConfig(data: Map<String, Any?>): AndroidBuildConfig {
         if (data == null) return AndroidBuildConfig()
-
         return AndroidBuildConfig(
             enabled = (data["enabled"] as? Boolean) ?: true,
             defaultFlavor = (data["default_flavor"] as? String)
@@ -101,7 +100,8 @@ class SnakeYamlConfigParser : ConfigParser {
             defaultType = (data["default_type"] as? String)
                 ?: (data["defaultType"] as? String)
                 ?: "release",
-
+            flavors = (data["flavors"] as? List<*>)?.mapNotNull { it.toString() }
+                ?: emptyList(),
             // Signing config
             keyStore = (data["key_store"] as? String)
                 ?: (data["keyStore"] as? String)
@@ -165,7 +165,7 @@ class SnakeYamlConfigParser : ConfigParser {
         return VersionConfig(
             current = data["current"] as? String ?: "1.0.0",
             autoIncrement = data["auto_increment"] as? Boolean ?: false,
-            bumpStrategy = data["bump_strategy"] as? String ?: "semver",
+            bumpStrategy = data["bump_strategy"] as? String ?: "patch",
             filesToUpdate = (data["files_to_update"] as? List<*>)?.mapNotNull { it as? String }
                 ?: emptyList()
         )

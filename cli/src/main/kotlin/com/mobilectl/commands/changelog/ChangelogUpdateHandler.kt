@@ -16,7 +16,7 @@ class ChangelogUpdateHandler(
 ) {
     private val out = PrintWriter(System.out, true, StandardCharsets.UTF_8)
     private val workingPath = System.getProperty("user.dir")
-    private val configFile = File(workingPath, "mobileops.yml").absolutePath
+    private val configFile = File(workingPath, "mobileops.yaml").absolutePath
 
     suspend fun execute() {
         try {
@@ -28,45 +28,43 @@ class ChangelogUpdateHandler(
 
             val changelogConfig = config.changelog ?: return
             if (!changelogConfig.enabled) {
-                out.println("⚠️  Changelog is disabled in config")
+                com.mobilectl.util.PremiumLogger.simpleWarning("Changelog is disabled in config")
                 return
             }
 
-            // Check if changelog exists
             val writer = createChangelogWriter()
             val existingContent = writer.read(changelogConfig.outputFile)
 
             if (existingContent == null) {
-                out.println("⚠️  No existing changelog found")
-                out.println("   Generate one with: mobilectl changelog generate")
+                com.mobilectl.util.PremiumLogger.simpleWarning("No existing changelog found")
+                com.mobilectl.util.PremiumLogger.info("Generate one with: mobilectl changelog generate")
                 return
             }
 
-            // Create orchestrator
             val parser = JGitCommitParser()
             val orchestrator = ChangelogOrchestrator(parser, writer,
                 createChangelogStateManager(), changelogConfig)
 
-            out.println("🔄 Updating changelog...")
-            out.println("   File: ${changelogConfig.outputFile}")
+            com.mobilectl.util.PremiumLogger.section("Updating Changelog")
+            com.mobilectl.util.PremiumLogger.detail("File", changelogConfig.outputFile)
 
-            // Regenerate
             val result = orchestrator.generate(
                 fromTag = null,
                 dryRun = false
             )
 
             if (!result.success) {
-                out.println("❌ ${result.error}")
+                com.mobilectl.util.PremiumLogger.error(result.error ?: "Update failed")
+                com.mobilectl.util.PremiumLogger.sectionEnd()
                 return
             }
 
-            out.println("✅ Changelog updated!")
-            out.println("   Commits processed: ${result.commitCount}")
+            com.mobilectl.util.PremiumLogger.success("Changelog updated")
+            com.mobilectl.util.PremiumLogger.detail("Commits", "${result.commitCount} processed", dim = true)
+            com.mobilectl.util.PremiumLogger.sectionEnd()
 
             if (verbose && result.content != null) {
-                out.println("\n📄 Updated content:\n")
-                out.println(result.content)
+                println("\n${result.content}")
             }
         } catch (e: Exception) {
             out.println("❌ Error: ${e.message}")

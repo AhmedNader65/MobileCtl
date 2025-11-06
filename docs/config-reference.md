@@ -1,4 +1,4 @@
-# mobileops.yml Configuration Reference
+# mobileops.yaml Configuration Reference
 
 ## Zero-Config Philosophy
 
@@ -8,7 +8,7 @@ mobilectl build # Auto-detects Android/iOS, uses smart defaults
 mobilectl deploy # Auto-uploads to ./builds folder
 
 
-Create `mobileops.yml` only to **customize** default behavior.
+Create `mobileops.yaml` only to **customize** default behavior.
 
 ---
 
@@ -50,7 +50,7 @@ Create `mobileops.yml` only to **customize** default behavior.
 
 ### Example 1: Zero Config (Just Run It!)
 
-**No `mobileops.yml` needed!**
+**No `mobileops.yaml` needed!**
 
 $ mobilectl info
 ✅ Project Information
@@ -108,7 +108,7 @@ Everything else auto-detects
 
 ## Default Behavior (No Config File)
 
-If no `mobileops.yml` exists, mobilectl uses these defaults:
+If no `mobileops.yaml` exists, mobilectl uses these defaults:
 
 Build:
 Android: gradle_task = "assembleRelease"
@@ -206,7 +206,7 @@ mobilectl changelog generate --from v1.0.0
 
 1. **Start with zero config** — Just run `mobilectl build`
 2. **Add config gradually** — Only customize what you need
-3. **Commit to git** — Include `mobileops.yml` in version control
+3. **Commit to git** — Include `mobileops.yaml` in version control
 4. **Use env vars for secrets** — Never hardcode passwords/keys
 5. **Use `mobilectl info`** — Verify auto-detected values before first build
 

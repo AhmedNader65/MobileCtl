@@ -124,7 +124,7 @@ mobilectl changelog update --verbose
 
 ## Configuration
 
-Configure changelog behavior in `mobileops.yml`:
+Configure changelog behavior in `mobileops.yaml`:
 
 ```yaml
 changelog:
@@ -415,7 +415,7 @@ git push origin --tags
 git log --oneline
 
 # Verify config
-cat mobileops.yml | grep -A5 changelog
+cat mobileops.yaml | grep -A5 changelog
 ```
 
 **Changelog not updating:**

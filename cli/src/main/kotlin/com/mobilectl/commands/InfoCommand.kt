@@ -18,7 +18,7 @@ class InfoCommand : CliktCommand(name = "info") {
             │  ├─ Version: 1.0.0
             │  └─ Gradle Task: assembleRelease
             ├─ iOS: not detected ❌
-            └─ Config: Using defaults (mobileops.yml not found)
+            └─ Config: Using defaults (mobileops.yaml not found)
         """.trimIndent())
 
         if (verbose) {
@@ -26,7 +26,7 @@ class InfoCommand : CliktCommand(name = "info") {
                 
                 🔍 Verbose Information:
                 ├─ Working directory: ${currentContext.obj}
-                ├─ Config file: ./mobileops.yml (not found)
+                ├─ Config file: ./mobileops.yaml (not found)
                 ├─ Android project: ./android
                 ├─ iOS project: ./ios
                 └─ Auto-detected config applied

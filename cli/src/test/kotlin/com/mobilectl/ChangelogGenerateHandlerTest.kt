@@ -30,8 +30,8 @@ class ChangelogGenerateHandlerTest {
             ProcessBuilder("git", "commit", "-m", "feat: initial commit")
                 .directory(testDir).start().waitFor()
 
-            // Create minimal mobileops.yml
-            File(testDir, "mobileops.yml").writeText(
+            // Create minimal mobileops.yaml
+            File(testDir, "mobileops.yaml").writeText(
                 """
                 changelog:
                   enabled: true

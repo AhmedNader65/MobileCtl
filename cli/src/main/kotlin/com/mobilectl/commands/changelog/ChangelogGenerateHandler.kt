@@ -5,6 +5,7 @@ import com.mobilectl.changelog.JGitCommitParser
 import com.mobilectl.changelog.SafeChangelogWriter
 import com.mobilectl.changelog.createBackupManager
 import com.mobilectl.changelog.createChangelogStateManager
+import com.mobilectl.config.Config
 import com.mobilectl.config.ConfigLoader
 import com.mobilectl.detector.createProjectDetector
 import com.mobilectl.util.createFileUtil
@@ -21,7 +22,7 @@ class ChangelogGenerateHandler(
 ) {
     private val out = PrintWriter(System.out, true, StandardCharsets.UTF_8)
     private val workingPath = System.getProperty("user.dir")
-    private val configFile = File(workingPath, "mobileops.yml").absolutePath
+    private val configFile = File(workingPath, "mobileops.yaml").absolutePath
 
     suspend fun execute() {
         try {
@@ -31,13 +32,9 @@ class ChangelogGenerateHandler(
             val configLoader = ConfigLoader(fileUtil, detector)
 
             val config = configLoader.loadConfig(configFile).getOrNull()
-                ?: return  // Error already printed by ConfigLoader
+                ?: Config()
 
-            val changelogConfig = config.changelog ?: return
-            if (!changelogConfig.enabled) {
-                println("⚠️  Changelog is disabled in config")
-                return
-            }
+            val changelogConfig = config.changelog
 
             // 2. Create orchestrator and generate
             val parser = JGitCommitParser()
@@ -52,7 +49,11 @@ class ChangelogGenerateHandler(
                 changelogConfig
             )
 
-            println("📝 Generating changelog...")
+            com.mobilectl.util.PremiumLogger.section("Generating Changelog")
+            com.mobilectl.util.PremiumLogger.detail("Output", changelogConfig.outputFile)
+            if (fromTag != null) {
+                com.mobilectl.util.PremiumLogger.detail("From Tag", fromTag, dim = true)
+            }
 
             val result = orchestrator.generate(
                 fromTag = fromTag,
@@ -62,16 +63,18 @@ class ChangelogGenerateHandler(
             )
 
             if (!result.success) {
-                println("❌ ${result.error}")
+                com.mobilectl.util.PremiumLogger.error(result.error ?: "Generation failed")
+                com.mobilectl.util.PremiumLogger.sectionEnd()
                 return
             }
 
-            println("✅ Generated successfully")
-            println("   Found ${result.commitCount} commits")
-            println("   Saved to: ${result.changelogPath}")
+            com.mobilectl.util.PremiumLogger.success("Generated successfully")
+            com.mobilectl.util.PremiumLogger.detail("Commits Found", "${result.commitCount}", dim = true)
+            com.mobilectl.util.PremiumLogger.detail("Saved To", result.changelogPath ?: changelogConfig.outputFile, dim = true)
+            com.mobilectl.util.PremiumLogger.sectionEnd()
 
         } catch (e: Exception) {
-            println("❌ Error: ${e.message}")
+            com.mobilectl.util.PremiumLogger.simpleError("Error: ${e.message}")
         }
     }
 }

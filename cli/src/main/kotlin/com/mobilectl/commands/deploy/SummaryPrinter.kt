@@ -116,7 +116,7 @@ private fun printRecommendations(failedResults: List<DeployResult>, workingPath:
 
     out.println("🔧 General Tips:")
     out.println("   • Run with --verbose flag for more details")
-    out.println("   • Check 'mobilectl.yaml' configuration")
+    out.println("   • Check 'mobileops.yaml' configuration")
     out.println("   • Verify credentials and permissions")
     out.println("   • Check your internet connection")
 }
@@ -153,7 +153,7 @@ private fun getRecommendations(
         message.contains("artifact", true) || message.contains("apk", true) -> {
             recommendations["Build Artifact"] = listOf(
                 "Build your app: ./gradlew assembleRelease",
-                "Check artifact path in mobilectl.yaml",
+                "Check artifact path in mobileops.yaml",
                 "Or rebuild: ./gradlew clean assembleRelease",
                 "Verify APK exists: ${ArtifactDetector.findAndroidApk(File(workingPath))?.absolutePath ?: "Not found"}"
             )
@@ -164,7 +164,7 @@ private fun getRecommendations(
                 "Create test groups in Firebase Console",
                 "Go to App Distribution → Testers & Groups",
                 "Add testers to groups first",
-                "Then specify groups in mobilectl.yaml: deploy.android.firebase.test_groups"
+                "Then specify groups in mobileops.yaml: deploy.android.firebase.test_groups"
             )
         }
 
@@ -199,7 +199,7 @@ private fun getRecommendations(
         message.contains("invalid", true) -> {
             recommendations["Invalid Configuration"] = listOf(
                 "Review error message above carefully",
-                "Check mobilectl.yaml syntax (YAML format)",
+                "Check mobileops.yaml syntax (YAML format)",
                 "Verify all required fields are filled",
                 "Run: mobilectl validate to check configuration"
             )
@@ -207,7 +207,7 @@ private fun getRecommendations(
 
         message.contains("not found", true) -> {
             recommendations["File Not Found"] = listOf(
-                "Check file paths in mobilectl.yaml",
+                "Check file paths in mobileops.yaml",
                 "Use absolute or relative-to-project paths",
                 "Verify file permissions (readable)",
                 "For artifacts: Build your app first"
@@ -217,7 +217,7 @@ private fun getRecommendations(
         message.contains("timeout", true) -> {
             recommendations["Request Timeout"] = listOf(
                 "Network connection may be slow",
-                "Increase timeout in mobilectl.yaml",
+                "Increase timeout in mobileops.yaml",
                 "Try deploying again",
                 "Contact Firebase support if issue persists"
             )

@@ -263,7 +263,7 @@ class AndroidBuilder(
         println("    ${gray}keytool -genkey -v -keystore release.jks -keyalg RSA \\$reset")
         println("    ${gray}  -keysize 2048 -validity 10000 -alias release-key$reset")
         println()
-        println("  ${cyan}►$reset ${bold}Step 2$reset ${dim}— Configure mobilectl.yaml$reset")
+        println("  ${cyan}►$reset ${bold}Step 2$reset ${dim}— Configure mobileops.yaml$reset")
         println("    ${gray}build:$reset")
         println("    ${gray}  android:$reset")
         println("    ${gray}    keyStore: release.jks$reset")

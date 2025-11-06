@@ -4,9 +4,13 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class ChangelogConfig(
-    val enabled: Boolean = true,
+    val enabled: Boolean = false,
     val format: String = "markdown",  // markdown
     val outputFile: String = "CHANGELOG.md",
+    val fromTag: String? = null,
+    val append: Boolean = true,
+    val useLastState: Boolean = true,
+    val dryRun: Boolean = false,
     val includeBreakingChanges: Boolean = true,
     val includeContributors: Boolean = true,
     val includeStats: Boolean = true,

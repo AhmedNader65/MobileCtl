@@ -28,7 +28,9 @@ class ConfigLoader(
                 )
             }
 
-            println("📖 Loading config from: $actualConfigPath")
+            val dim = "\u001B[2m"
+            val reset = "\u001B[0m"
+            println("  ${dim}Loading config from: $actualConfigPath$reset")
 
             val yamlContent = fileUtil.readFile(actualConfigPath)
 
@@ -71,12 +73,12 @@ class ConfigLoader(
 
     private fun findDefaultConfigPath(): String {
         val possiblePaths = listOf(
-            "mobileops.yml",
             "mobileops.yaml",
-            ".mobilectl/mobileops.yml",
+            "mobileops.yaml",
+            ".mobilectl/mobileops.yaml",
             ".mobilectl/mobileops.yaml"
         )
-        return possiblePaths.find { File(it).exists() } ?: "mobileops.yml"
+        return possiblePaths.find { File(it).exists() } ?: "mobileops.yaml"
     }
 
     companion object {
