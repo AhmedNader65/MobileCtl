@@ -363,10 +363,16 @@ class DeploymentWorkflow(
                 Platform.ANDROID -> {
                     val androidConfig = config.deploy?.android
                     if (androidConfig != null && androidConfig.enabled) {
+                        // Get flavor and type from build config for cache lookup
+                        val buildFlavor = config.build.android.defaultFlavor
+                        val buildType = config.build.android.defaultType
+
                         val artifactFile = ArtifactDetector.resolveArtifact(
                             path = androidConfig.artifactPath,
                             artifactType = ArtifactType.APK,
-                            baseDir = baseDir
+                            baseDir = baseDir,
+                            flavor = buildFlavor,
+                            type = buildType
                         )
 
                         if (artifactFile == null) {

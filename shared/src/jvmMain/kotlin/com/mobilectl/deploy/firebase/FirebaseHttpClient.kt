@@ -1,12 +1,14 @@
 package com.mobilectl.deploy.firebase
 
-import com.sun.org.apache.xml.internal.security.utils.XMLUtils.encodeToString
+import com.mobilectl.util.ApkAnalyzer
+import com.mobilectl.util.PremiumLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
 import java.time.Duration
 
@@ -52,17 +54,22 @@ class FirebaseHttpClient(
          */
         suspend fun create(
             serviceAccountFile: File,
-            googleServicesJson: File? = null
+            googleServicesJson: File? = null,
+            apkFile: File? = null
         ): FirebaseHttpClient {
             // Get access token from service account
             val accessToken =
                 ServiceAccountAuth.getAccessTokenFromServiceAccount(serviceAccountFile)
 
+            // Extract package ID from APK if provided
+            val packageId = apkFile?.let { ApkAnalyzer.getPackageId(it) }
+                ?: throw Exception("Could not extract package ID from APK. APK file is required.")
+
             // Get Firebase config from google-services.json
             val config = if (googleServicesJson != null) {
-                GoogleServicesParser.parse(googleServicesJson)
+                GoogleServicesParser.parse(googleServicesJson, packageId)
             } else {
-                GoogleServicesParser.findAndParse()
+                GoogleServicesParser.findAndParse(packageId = packageId)
             }
 
             return FirebaseHttpClient(
@@ -83,7 +90,7 @@ class FirebaseHttpClient(
             try {
                 val releaseId = uploadApk(file, releaseNotes, testGroups)
 
-                com.mobilectl.util.PremiumLogger.success("Release created: $releaseId")
+                PremiumLogger.success("Release created: $releaseId")
 
                 FirebaseUploadResponse(
                     success = true,
@@ -118,7 +125,7 @@ class FirebaseHttpClient(
                 val url = buildEndpointUrl()
                 val startUpload = System.currentTimeMillis()
 
-                com.mobilectl.util.PremiumLogger.progress("Uploading to Firebase (${file.length() / (1024 * 1024)} MB)")
+                PremiumLogger.progress("Uploading to Firebase (${file.length() / (1024 * 1024)} MB)")
 
                 val requestBody = file.asRequestBody("application/octet-stream".toMediaType())
 
@@ -135,16 +142,21 @@ class FirebaseHttpClient(
                     val uploadDuration = (System.currentTimeMillis() - startUpload) / 1000
 
                     if (!response.isSuccessful) {
-                        throw Exception("HTTP ${response.code}: $responseBody")
+                        val cleanError = cleanErrorMessage(responseBody, response.code)
+                        throw Exception("Upload failed: $cleanError")
                     }
 
-                    com.mobilectl.util.PremiumLogger.success("Uploaded in ${uploadDuration}s")
+                    PremiumLogger.success("Uploaded in ${uploadDuration}s")
 
                     val operationName = parseOperationName(responseBody)
-                    com.mobilectl.util.PremiumLogger.progress("Processing release...")
+                    PremiumLogger.progress("Processing release...")
 
                     val releaseName = pollOperation(operationName)
-
+                    PremiumLogger.info("testGroups: $testGroups")
+                    if(testGroups.isEmpty()){
+                        PremiumLogger.info("No test groups specified, skipping distribution step.")
+                        return@withContext releaseName.substringAfterLast("/")
+                    }
                     distributeRelease(releaseName, releaseNotes, testGroups)
 
                     releaseName.substringAfterLast("/")
@@ -185,9 +197,10 @@ class FirebaseHttpClient(
             append("]}")
         }
 
+        val requestBody = requestBodyJson.toRequestBody("application/json".toMediaType())
         val request = Request.Builder()
             .url(url)
-            .post(okhttp3.RequestBody.create("application/json".toMediaType(), requestBodyJson))
+            .post(requestBody)
             .addHeader("Authorization", "Bearer $accessToken")
             .build()
 
@@ -195,10 +208,11 @@ class FirebaseHttpClient(
             val responseBody = response.body?.string() ?: ""
 
             if (!response.isSuccessful) {
-                throw Exception("Distribution failed: HTTP ${response.code}\n$responseBody")
+                val cleanError = cleanErrorMessage(responseBody, response.code)
+                throw Exception("Distribution failed: $cleanError")
             }
 
-            com.mobilectl.util.PremiumLogger.success("Distributed to: ${groupsToDistribute.joinToString(", ")}")
+            PremiumLogger.success("Distributed to: ${groupsToDistribute.joinToString(", ")}")
         }
     }
 
@@ -226,19 +240,35 @@ class FirebaseHttpClient(
                 val responseBody = response.body?.string() ?: ""
 
                 if (!response.isSuccessful) {
-                    throw Exception("Operation poll failed: HTTP ${response.code}\n$responseBody")
+                    val cleanError = cleanErrorMessage(responseBody, response.code)
+                    throw Exception("Operation poll failed: $cleanError")
                 }
 
                 // Check if operation is done
                 if (responseBody.contains("\"done\":true") || responseBody.contains("\"done\": true")) {
-                    // Extract release name from response
-                    val releaseNameStart = responseBody.indexOf("\"name\"", responseBody.indexOf("\"release\""))
-                    if (releaseNameStart != -1) {
-                        val valueStart = responseBody.indexOf("\"", releaseNameStart + 7) + 1
-                        val valueEnd = responseBody.indexOf("\"", valueStart)
-                        return@withContext responseBody.substring(valueStart, valueEnd)
+                    // Extract release name from the "release" object in the response
+                    // Response structure: { "name": "operations/...", "done": true, "response": { "@type": "...", "result": { "release": { "name": "projects/.../releases/..." } } } }
+                    // OR: { "name": "operations/...", "done": true, "response": { "@type": "...", "name": "projects/.../releases/..." } }
+
+                    // Try to extract from response.result.release.name first
+                    val resultMatch = Regex("\"result\"\\s*:\\s*\\{[^}]*\"release\"\\s*:\\s*\\{[^}]*\"name\"\\s*:\\s*\"([^\"]+)\"").find(responseBody)
+                    if (resultMatch != null) {
+                        val releaseName = resultMatch.groupValues[1]
+                        PremiumLogger.detail("Release", releaseName, dim = true)
+                        return@withContext releaseName
                     }
-                    throw Exception("Release name not found in completed operation")
+
+                    // Try to extract from response.name (if release is at top level of response)
+                    val responseMatch = Regex("\"response\"\\s*:\\s*\\{[^}]*\"name\"\\s*:\\s*\"(projects/[^\"]+/releases/[^\"]+)\"").find(responseBody)
+                    if (responseMatch != null) {
+                        val releaseName = responseMatch.groupValues[1]
+                        PremiumLogger.detail("Release", releaseName, dim = true)
+                        return@withContext releaseName
+                    }
+
+                    // Log the actual response for debugging
+                    PremiumLogger.warning("Could not extract release name. Response: ${responseBody.take(500)}")
+                    throw Exception("Release name not found in completed operation. Check logs for response details.")
                 }
             }
 
@@ -247,5 +277,45 @@ class FirebaseHttpClient(
         }
 
         throw Exception("Operation timed out after 120 seconds")
+    }
+
+    /**
+     * Clean up error messages to remove HTML and keep only useful info
+     */
+    private fun cleanErrorMessage(responseBody: String, code: Int): String {
+        // If it's HTML, extract the meaningful error
+        if (responseBody.contains("<!DOCTYPE html>") || responseBody.contains("<html")) {
+            // Try to extract error message from HTML title or body
+            val titleMatch = Regex("<title>(.*?)</title>").find(responseBody)
+            if (titleMatch != null) {
+                return "HTTP $code - ${titleMatch.groupValues[1]}"
+            }
+            return "HTTP $code - Server returned HTML error page"
+        }
+
+        // If it's JSON, try to extract error message
+        if (responseBody.trim().startsWith("{")) {
+            try {
+                val errorMatch = Regex("\"error\"\\s*:\\s*\"([^\"]+)\"").find(responseBody)
+                if (errorMatch != null) {
+                    return "HTTP $code - ${errorMatch.groupValues[1]}"
+                }
+
+                val messageMatch = Regex("\"message\"\\s*:\\s*\"([^\"]+)\"").find(responseBody)
+                if (messageMatch != null) {
+                    return "HTTP $code - ${messageMatch.groupValues[1]}"
+                }
+            } catch (e: Exception) {
+                // Ignore parsing errors
+            }
+        }
+
+        // If response is short, return it
+        if (responseBody.length < 200) {
+            return "HTTP $code - $responseBody"
+        }
+
+        // Otherwise return truncated
+        return "HTTP $code - ${responseBody.take(200)}..."
     }
 }

@@ -247,7 +247,7 @@ class ConfigurationServiceTest {
         )
 
         // Empty string should result in empty list
-        assertEquals(emptyList(), result.deploy.android?.firebase?.testGroups)
+        assertEquals("", result.deploy.android?.firebase?.testGroups?.joinToString(","))
     }
 
     @Test

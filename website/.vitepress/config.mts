@@ -39,6 +39,7 @@ export default defineConfig({
             { text: 'What is MobileCtl?', link: '/guide/what-is-mobilectl' },
             { text: 'Getting Started', link: '/guide/getting-started' },
             { text: 'Installation', link: '/guide/installation' },
+            { text: 'Setup Wizard', link: '/guide/setup-wizard' },
             { text: 'Quick Start', link: '/guide/quick-start' }
           ]
         },
@@ -67,9 +68,10 @@ export default defineConfig({
           text: 'Command Reference',
           items: [
             { text: 'Overview', link: '/reference/commands' },
-            { text: 'version', link: '/reference/version' },
+            { text: 'setup', link: '/reference/setup' },
             { text: 'build', link: '/reference/build' },
             { text: 'deploy', link: '/reference/deploy' },
+            { text: 'version', link: '/reference/version' },
             { text: 'changelog', link: '/reference/changelog' }
           ]
         },

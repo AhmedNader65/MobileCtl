@@ -48,7 +48,7 @@ class DeploymentPresenter(
         if (destinations.isNotEmpty()) {
             items["Destinations"] = destinations.joinToString(", ")
         }
-
+        print(config)
         // Show flavor/group info
         if (allFlavors) {
             items["Flavors"] = "All configured flavors"
@@ -58,7 +58,7 @@ class DeploymentPresenter(
         } else if (flavors != null) {
             items["Flavors"] = flavors!!
         } else {
-            items["Flavor"] = config.build.android.defaultFlavor.ifEmpty { "default" }
+            items["Flavor"] = config.build.android.defaultFlavor
         }
 
         if (exclude != null) {

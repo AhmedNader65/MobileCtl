@@ -25,6 +25,7 @@ import com.mobilectl.model.notifications.SlackNotifyConfig
 import com.mobilectl.model.notifications.WebhookNotifyConfig
 import com.mobilectl.model.report.ReportConfig
 import com.mobilectl.model.versionManagement.VersionConfig
+import org.yaml.snakeyaml.DumperOptions
 import org.yaml.snakeyaml.Yaml
 import org.yaml.snakeyaml.constructor.Constructor
 import org.yaml.snakeyaml.representer.Representer
@@ -39,7 +40,19 @@ actual interface ConfigParser {
 
 class SnakeYamlConfigParser : ConfigParser {
 
-    private val yaml = Yaml();
+    private val yaml = Yaml()
+
+    private val yamlDumper = Yaml(createDumperOptions())
+
+    private fun createDumperOptions(): DumperOptions {
+        return DumperOptions().apply {
+            defaultFlowStyle = DumperOptions.FlowStyle.BLOCK
+            isPrettyFlow = true
+            indent = 2
+            indicatorIndent = 0
+            indentWithIndicator = true
+        }
+    }
 
 
     override fun parse(yamlContent: String): Config {
@@ -96,7 +109,7 @@ class SnakeYamlConfigParser : ConfigParser {
             enabled = (data["enabled"] as? Boolean) ?: true,
             defaultFlavor = (data["default_flavor"] as? String)
                 ?: (data["defaultFlavor"] as? String)
-                ?: "release",
+                ?: "",
             defaultType = (data["default_type"] as? String)
                 ?: (data["defaultType"] as? String)
                 ?: "release",
@@ -435,7 +448,220 @@ class SnakeYamlConfigParser : ConfigParser {
     }
 
     override fun toYaml(config: Config): String {
-        return yaml.dump(config)
+        val configMap = convertConfigToMap(config)
+        return yamlDumper.dump(configMap)
+    }
+
+    /**
+     * Convert Config object to Map for YAML serialization
+     */
+    private fun convertConfigToMap(config: Config): Map<String, Any?> {
+        val map = mutableMapOf<String, Any?>()
+
+        // App config
+        if (config.app.name != null || config.app.identifier != null || config.app.version != null) {
+            map["app"] = mapOf(
+                "name" to config.app.name,
+                "identifier" to config.app.identifier,
+                "version" to config.app.version
+            ).filterValues { it != null }
+        }
+
+        // Build config
+        val buildMap = mutableMapOf<String, Any?>()
+        if (config.build.android.enabled != false) {
+            buildMap["android"] = mapOf(
+                "enabled" to config.build.android.enabled,
+                "default_flavor" to config.build.android.defaultFlavor,
+                "default_type" to config.build.android.defaultType,
+                "flavors" to config.build.android.flavors.takeIf { it.isNotEmpty() },
+                "key_store" to config.build.android.keyStore.takeIf { it.isNotEmpty() },
+                "key_alias" to config.build.android.keyAlias.takeIf { it.isNotEmpty() },
+                "key_password" to config.build.android.keyPassword.takeIf { it.isNotEmpty() },
+                "store_password" to config.build.android.storePassword.takeIf { it.isNotEmpty() },
+                "use_env_for_passwords" to config.build.android.useEnvForPasswords
+            ).filterValues { it != null && it != false }
+        }
+        if (config.build.ios.enabled == true) {
+            buildMap["ios"] = mapOf(
+                "enabled" to config.build.ios.enabled,
+                "project_path" to config.build.ios.projectPath,
+                "scheme" to config.build.ios.scheme.takeIf { it.isNotEmpty() },
+                "configuration" to config.build.ios.configuration,
+                "destination" to config.build.ios.destination,
+                "code_sign_identity" to config.build.ios.codeSignIdentity,
+                "provisioning_profile" to config.build.ios.provisioningProfile,
+                "output" to mapOf(
+                    "format" to config.build.ios.output.format,
+                    "name" to config.build.ios.output.name
+                )
+            ).filterValues { it != null }
+        }
+        if (buildMap.isNotEmpty()) {
+            map["build"] = buildMap
+        }
+
+        // Version config
+        config.version?.let { version ->
+            map["version"] = mapOf(
+                "current" to version.current,
+                "auto_increment" to version.autoIncrement,
+                "bump_strategy" to version.bumpStrategy,
+                "files_to_update" to version.filesToUpdate.takeIf { it.isNotEmpty() }
+            ).filterValues { it != null && it != false }
+        }
+
+        // Changelog config
+        val changelogMap = mutableMapOf<String, Any?>()
+        changelogMap["enabled"] = config.changelog.enabled
+        changelogMap["format"] = config.changelog.format
+        changelogMap["output_file"] = config.changelog.outputFile
+        if (config.changelog.includeBreakingChanges != true) {
+            changelogMap["include_breaking_changes"] = config.changelog.includeBreakingChanges
+        }
+        if (config.changelog.includeContributors != true) {
+            changelogMap["include_contributors"] = config.changelog.includeContributors
+        }
+        if (config.changelog.includeStats != true) {
+            changelogMap["include_stats"] = config.changelog.includeStats
+        }
+        if (config.changelog.includeCompareLinks != true) {
+            changelogMap["include_compare_links"] = config.changelog.includeCompareLinks
+        }
+        if (config.changelog.groupByVersion != true) {
+            changelogMap["group_by_version"] = config.changelog.groupByVersion
+        }
+        if (config.changelog.commitTypes.isNotEmpty()) {
+            changelogMap["commit_types"] = config.changelog.commitTypes.map { commitType ->
+                mapOf(
+                    "type" to commitType.type,
+                    "title" to commitType.title,
+                    "emoji" to commitType.emoji
+                )
+            }
+        }
+        if (config.changelog.releases.isNotEmpty()) {
+            changelogMap["releases"] = config.changelog.releases.mapValues { (_, release) ->
+                mapOf(
+                    "highlights" to release.highlights,
+                    "breaking_changes" to release.breaking_changes.takeIf { it.isNotEmpty() },
+                    "contributors" to release.contributors.takeIf { it.isNotEmpty() }
+                ).filterValues { it != null }
+            }
+        }
+        map["changelog"] = changelogMap
+
+        // Deploy config
+        if (config.deploy.android != null || config.deploy.ios != null) {
+            val deployMap = mutableMapOf<String, Any?>()
+
+            config.deploy.android?.let { android ->
+                val androidMap = mutableMapOf<String, Any?>()
+                androidMap["enabled"] = android.enabled
+                androidMap["artifact_path"] = android.artifactPath
+
+                if (android.firebase.enabled) {
+                    androidMap["firebase"] = mapOf(
+                        "enabled" to android.firebase.enabled,
+                        "service_account" to android.firebase.serviceAccount,
+                        "google_services" to android.firebase.googleServices,
+                        "test_groups" to android.firebase.testGroups.takeIf { it.isNotEmpty() }
+                    ).filterValues { it != null }
+                }
+
+                if (android.playConsole.enabled) {
+                    androidMap["play_console"] = mapOf(
+                        "enabled" to android.playConsole.enabled,
+                        "service_account" to android.playConsole.serviceAccount,
+                        "package_name" to android.playConsole.packageName
+                    ).filterValues { it != null }
+                }
+
+                if (android.local.enabled) {
+                    androidMap["local"] = mapOf(
+                        "enabled" to android.local.enabled,
+                        "output_dir" to android.local.outputDir
+                    ).filterValues { it != null }
+                }
+
+                deployMap["android"] = androidMap
+            }
+
+            config.deploy.ios?.let { ios ->
+                val iosMap = mutableMapOf<String, Any?>()
+                iosMap["enabled"] = ios.enabled
+                iosMap["artifact_path"] = ios.artifactPath
+
+                if (ios.testflight.enabled) {
+                    iosMap["testflight"] = mapOf(
+                        "enabled" to ios.testflight.enabled,
+                        "api_key_path" to ios.testflight.apiKeyPath,
+                        "bundle_id" to ios.testflight.bundleId,
+                        "team_id" to ios.testflight.teamId
+                    ).filterValues { it != null }
+                }
+
+                if (ios.appStore.enabled) {
+                    iosMap["app_store"] = mapOf(
+                        "enabled" to ios.appStore.enabled,
+                        "api_key_path" to ios.appStore.apiKeyPath,
+                        "bundle_id" to ios.appStore.bundleId,
+                        "team_id" to ios.appStore.teamId
+                    ).filterValues { it != null }
+                }
+
+                deployMap["ios"] = iosMap
+            }
+
+            if (deployMap.isNotEmpty()) {
+                map["deploy"] = deployMap
+            }
+        }
+
+        // Notify config
+        val notifyMap = mutableMapOf<String, Any?>()
+        if (config.notify.slack.enabled) {
+            notifyMap["slack"] = mapOf(
+                "enabled" to config.notify.slack.enabled,
+                "webhook_url" to config.notify.slack.webhookUrl,
+                "channel" to config.notify.slack.channel,
+                "notify_on" to config.notify.slack.notifyOn.takeIf { it.isNotEmpty() }
+            ).filterValues { it != null }
+        }
+        if (config.notify.email.enabled) {
+            notifyMap["email"] = mapOf(
+                "enabled" to config.notify.email.enabled,
+                "recipients" to config.notify.email.recipients.takeIf { it.isNotEmpty() },
+                "notify_on" to config.notify.email.notifyOn.takeIf { it.isNotEmpty() }
+            ).filterValues { it != null }
+        }
+        if (config.notify.webhook.enabled) {
+            notifyMap["webhook"] = mapOf(
+                "enabled" to config.notify.webhook.enabled,
+                "url" to config.notify.webhook.url,
+                "events" to config.notify.webhook.events.takeIf { it.isNotEmpty() }
+            ).filterValues { it != null }
+        }
+        if (notifyMap.isNotEmpty()) {
+            map["notify"] = notifyMap
+        }
+
+        // Report config
+        if (config.report.enabled) {
+            map["report"] = mapOf(
+                "enabled" to config.report.enabled,
+                "format" to config.report.format,
+                "include" to config.report.include.takeIf { it.isNotEmpty() },
+                "output_path" to config.report.outputPath
+            ).filterValues { it != null }
+        }
+
+        // Environment variables
+        if (config.env.isNotEmpty()) {
+            map["env"] = config.env
+        }
+
+        return map
     }
 
     /**

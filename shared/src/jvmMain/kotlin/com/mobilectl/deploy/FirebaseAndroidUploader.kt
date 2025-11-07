@@ -12,8 +12,8 @@ import java.io.File
  * SOLID: Single Responsibility - only handles upload orchestration
  */
 class FirebaseAndroidUploader(
-    private val firebaseClientProvider: suspend (File) -> FirebaseClient = { serviceAccountFile ->
-        FirebaseHttpClient.create(serviceAccountFile)
+    private val firebaseClientProvider: suspend (File, File) -> FirebaseClient = { serviceAccountFile, apkFile ->
+        FirebaseHttpClient.create(serviceAccountFile, apkFile = apkFile)
     }
 ) : BaseUploadStrategy() {
 
@@ -49,8 +49,18 @@ class FirebaseAndroidUploader(
                 com.mobilectl.util.PremiumLogger.section("Firebase App Distribution")
                 com.mobilectl.util.PremiumLogger.detail("File", "${validFile.name} (${validFile.length() / (1024 * 1024)} MB)")
 
+                // Show APK info
+                try {
+                    val apkInfo = com.mobilectl.util.ApkAnalyzer.getApkInfo(validFile)
+                    if (apkInfo != null) {
+                        com.mobilectl.util.PremiumLogger.detail("Package ID", apkInfo.packageId)
+                    }
+                } catch (e: Exception) {
+                    // Ignore if we can't extract APK info
+                }
+
                 // Create Firebase client
-                val firebaseClient = firebaseClientProvider(serviceAccountFile)
+                val firebaseClient = firebaseClientProvider(serviceAccountFile, validFile)
 
                 // Extract upload parameters
                 val releaseNotes = config["releaseNotes"]

@@ -14,6 +14,7 @@ import com.mobilectl.commands.VersionCommand
 import com.mobilectl.commands.VersionRestoreCommand
 import com.mobilectl.commands.VersionShowCommand
 import com.mobilectl.commands.DeployCommand
+import com.mobilectl.commands.SetupCommand
 
 fun main(args: Array<String>) {
     try {
@@ -32,6 +33,7 @@ fun main(args: Array<String>) {
 
         MobileCtl()
             .subcommands(
+                SetupCommand(),
                 BuildCommand(),
                 DeployCommand(),
                 VersionCommand().subcommands(
@@ -64,21 +66,25 @@ private fun showHelp() {
         │                      🔧 mobilectl v0.1.0                  │
         │          Modern DevOps automation for mobile apps          │
         ╰────────────────────────────────────────────────────────────╯
-        
+
         Usage: mobilectl [OPTIONS] COMMAND [ARGS]...
-        
+
         ✨ Commands:
+          setup              🚀 Run comprehensive setup wizard
           build              Build Android or iOS app
           deploy             Deploy build artifacts
           version            Manage app version
           changelog          Generate changelog
           info               Show project configuration
-          
+
         📋 Options:
           --help             Show this message
           --version          Show version
           --verbose          Verbose output
           --dry-run          Show what would be done without doing it
+
+        💡 Quick Start:
+          mobilectl setup    # Set up your project for the first time
     """.trimIndent()
     )
 }

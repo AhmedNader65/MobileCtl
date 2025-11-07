@@ -12,6 +12,7 @@ class AndroidBuilder(
 ) : PlatformBuilder {
 
     private val logger = createLogger("AndroidBuilder")
+    private var cachedModuleDir: String? = null
 
     override suspend fun build(baseDir: String, config: Config): BuildOutput {
         val startTime = System.currentTimeMillis()
@@ -42,6 +43,20 @@ class AndroidBuilder(
                     ?: findUnsignedApkPath(baseDir, buildFlavor, buildType)
 
                 if (existingArtifact != null) {
+                    // Cache the artifact path for deployment
+                    ArtifactCache.setArtifactPath(buildFlavor, buildType, existingArtifact)
+
+                    // Show APK info when using cached build
+                    try {
+                        val apkInfo = com.mobilectl.util.ApkAnalyzer.getApkInfo(File(existingArtifact))
+                        if (apkInfo != null) {
+                            com.mobilectl.util.PremiumLogger.detail("Package ID", apkInfo.packageId, dim = true)
+                            com.mobilectl.util.PremiumLogger.detail("Version", "${apkInfo.versionName} (${apkInfo.versionCode})", dim = true)
+                        }
+                    } catch (e: Exception) {
+                        logger.debug("Could not extract APK info: ${e.message}")
+                    }
+
                     val duration = System.currentTimeMillis() - startTime
                     return BuildOutput(
                         success = true,
@@ -88,6 +103,23 @@ class AndroidBuilder(
                 findSignedApkPath(baseDir, buildFlavor, buildType)
             } else {
                 findUnsignedApkPath(baseDir, buildFlavor, buildType)
+            }
+
+            // Cache the artifact path for deployment
+            if (outputPath != null) {
+                ArtifactCache.setArtifactPath(buildFlavor, buildType, outputPath)
+
+                // Extract and display APK info
+                try {
+                    val apkInfo = com.mobilectl.util.ApkAnalyzer.getApkInfo(File(outputPath))
+                    if (apkInfo != null) {
+                        com.mobilectl.util.PremiumLogger.detail("Package ID", apkInfo.packageId)
+                        com.mobilectl.util.PremiumLogger.detail("Version", "${apkInfo.versionName} (${apkInfo.versionCode})")
+                        com.mobilectl.util.PremiumLogger.detail("Size", String.format("%.2f MB", apkInfo.fileSizeMB))
+                    }
+                } catch (e: Exception) {
+                    logger.debug("Could not extract APK info: ${e.message}")
+                }
             }
 
             val duration = System.currentTimeMillis() - startTime
@@ -356,24 +388,90 @@ class AndroidBuilder(
         }
     }
 
+    /**
+     * Find the Android app module directory (with caching)
+     * Tries common module names first, then scans for Android modules
+     */
+    private fun findAndroidModuleDir(baseDir: String): String {
+        // Return cached result if available
+        cachedModuleDir?.let { return it }
+
+        val baseDirFile = File(baseDir)
+
+        // Try common module names first (fast path)
+        val commonNames = listOf("app", "android", "mobile")
+        for (name in commonNames) {
+            val moduleDir = File(baseDirFile, name)
+            print("trying to find android module in $moduleDir\n")
+            if (moduleDir.exists() && isAndroidModule(moduleDir)) {
+                logger.debug("Found Android module: $name")
+                cachedModuleDir = moduleDir.absolutePath
+                return moduleDir.absolutePath
+            }
+        }
+
+        // Fall back to scanning all directories (slower but comprehensive)
+        logger.debug("Scanning for Android modules...")
+        baseDirFile.listFiles()?.forEach { dir ->
+            if (dir.isDirectory && !dir.name.startsWith(".") && isAndroidModule(dir)) {
+                logger.debug("Found Android module: ${dir.name}")
+                cachedModuleDir = dir.absolutePath
+                return dir.absolutePath
+            }
+        }
+
+        logger.warn("No Android module directory found, using project root as fallback")
+        cachedModuleDir = baseDir
+        return baseDir
+    }
+
+    /**
+     * Check if a directory is an Android module
+     * by looking for build.gradle or build.gradle.kts with Android plugin
+     */
+    private fun isAndroidModule(dir: File): Boolean {
+        val gradleFiles = listOf(
+            File(dir, "build.gradle.kts"),
+            File(dir, "build.gradle")
+        )
+
+        for (gradleFile in gradleFiles) {
+            if (gradleFile.exists()) {
+                return true
+            }
+        }
+
+        return false
+    }
+
     private fun findUnsignedApkPath(baseDir: String, flavor: String, type: String): String? {
-        val apkDir = File(baseDir, "build/outputs/apk/$flavor/$type")
+        val moduleDir = findAndroidModuleDir(baseDir)
+        val apkDir = File(moduleDir, "build/outputs/apk/$flavor/$type")
+
         return if (apkDir.exists()) {
             apkDir.walk()
                 .filter { it.name.endsWith("-unsigned.apk") }
                 .maxByOrNull { it.lastModified() }
                 ?.absolutePath
-        } else null
+        } else {
+            logger.debug("APK directory not found: ${apkDir.absolutePath}")
+            null
+        }
     }
 
     private fun findSignedApkPath(baseDir: String, flavor: String, type: String): String? {
-        val apkDir = File(baseDir, "build/outputs/apk/$flavor/$type")
+        val moduleDir = findAndroidModuleDir(baseDir)
+        val apkDir = File(moduleDir, "build/outputs/apk/$flavor/$type")
+
         return if (apkDir.exists()) {
             apkDir.walk()
                 .filter { it.name.endsWith(".apk") && !it.name.endsWith("-unsigned.apk") }
                 .maxByOrNull { it.lastModified() }
                 ?.absolutePath
-        } else null
+        } else {
+            logger.debug("APK directory not found: ${apkDir.absolutePath}")
+            null
+        }
     }
 
     private fun findGradleWrapper(baseDir: String): String? {
