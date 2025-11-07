@@ -109,6 +109,13 @@ Team ID: ABC123DEF ✓
 - App Store
 - Local filesystem
 
+::: tip Need Credentials?
+Learn how to create credentials for each platform:
+- [Google Play Service Account](google-play-service-account) - For Play Console deployment
+- [Firebase Service Account](firebase-service-account) - For Firebase App Distribution
+- [App Store Connect API Key](app-store-connect-api-key) - For TestFlight & App Store
+:::
+
 ### Phase 4: Version Management
 
 Configure automatic version bumping:
@@ -296,18 +303,21 @@ credentials/firebase-service-account.json
 credentials/firebase-adminsdk.json
 firebase-service-account.json
 ```
+→ [How to create Firebase service account](firebase-service-account)
 
 **Play Console:**
 ```
 credentials/play-console.json
 credentials/play-console-service-account.json
 ```
+→ [How to create Play Console service account](google-play-service-account)
 
 **App Store Connect:**
 ```
 credentials/app-store-connect-api-key.json
 credentials/appstore-api-key.json
 ```
+→ [How to create App Store Connect API key](app-store-connect-api-key)
 
 ### Build Configuration
 
@@ -553,6 +563,12 @@ diff mobileops.yaml mobileops.yaml.bak
 - [Deploy Command](/reference/deploy) - Deployment strategies
 - [CI/CD Integration](/guide/ci-cd) - Automating with GitHub Actions
 - [Getting Started](/guide/getting-started) - Complete beginner's guide
+
+### Credential Setup Guides
+
+- [Google Play Service Account](google-play-service-account) - Create Play Console credentials
+- [Firebase Service Account](firebase-service-account) - Create Firebase credentials
+- [App Store Connect API Key](app-store-connect-api-key) - Create iOS deployment credentials
 
 ## Common Questions
 
