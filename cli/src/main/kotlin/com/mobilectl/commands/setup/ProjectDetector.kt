@@ -62,6 +62,7 @@ class ProjectDetector(
      * Detects the app name from various sources.
      */
     fun detectAppName(): String? {
+        if(!baseDir.exists()) return null
         return detectFlutterAppName()
             ?: detectAndroidAppName()
             ?: detectIosAppName()
@@ -235,9 +236,35 @@ class ProjectDetector(
         val content = file.readText()
         val flavors = mutableListOf<String>()
 
-        // Look for productFlavors block
-        val flavorBlockRegex = """productFlavors\s*\{(.*?)\n\s*\}""".toRegex(RegexOption.DOT_MATCHES_ALL)
-        val flavorBlock = flavorBlockRegex.find(content)?.groupValues?.get(1) ?: return emptyList()
+        // Find the start of productFlavors block
+        val startIndex = content.indexOf("productFlavors")
+        if (startIndex == -1) return emptyList()
+
+        val openBraceIndex = content.indexOf('{', startIndex)
+        if (openBraceIndex == -1) return emptyList()
+
+        // Count braces to find the matching closing brace
+        var braceCount = 1
+        var currentIndex = openBraceIndex + 1
+        var closeBraceIndex = -1
+
+        while (currentIndex < content.length && braceCount > 0) {
+            when (content[currentIndex]) {
+                '{' -> braceCount++
+                '}' -> {
+                    braceCount--
+                    if (braceCount == 0) {
+                        closeBraceIndex = currentIndex
+                        break
+                    }
+                }
+            }
+            currentIndex++
+        }
+
+        if (closeBraceIndex == -1) return emptyList()
+
+        val flavorBlock = content.substring(openBraceIndex + 1, closeBraceIndex)
 
         // Extract flavor names like: create("free") or register("free")
         val flavorRegex = """(?:create|register)\s*\(\s*["'](.*?)["']\s*\)""".toRegex()
@@ -252,14 +279,44 @@ class ProjectDetector(
         val content = file.readText()
         val flavors = mutableListOf<String>()
 
-        // Look for productFlavors block
-        val flavorBlockRegex = """productFlavors\s*\{(.*?)\n\s*\}""".toRegex(RegexOption.DOT_MATCHES_ALL)
-        val flavorBlock = flavorBlockRegex.find(content)?.groupValues?.get(1) ?: return emptyList()
+        // Find the start of productFlavors block
+        val startIndex = content.indexOf("productFlavors")
+        if (startIndex == -1) return emptyList()
+
+        val openBraceIndex = content.indexOf('{', startIndex)
+        if (openBraceIndex == -1) return emptyList()
+
+        // Count braces to find the matching closing brace
+        var braceCount = 1
+        var currentIndex = openBraceIndex + 1
+        var closeBraceIndex = -1
+
+        while (currentIndex < content.length && braceCount > 0) {
+            when (content[currentIndex]) {
+                '{' -> braceCount++
+                '}' -> {
+                    braceCount--
+                    if (braceCount == 0) {
+                        closeBraceIndex = currentIndex
+                        break
+                    }
+                }
+            }
+            currentIndex++
+        }
+
+        if (closeBraceIndex == -1) return emptyList()
+
+        val flavorBlock = content.substring(openBraceIndex + 1, closeBraceIndex)
 
         // Extract flavor names like: free {} or free { ... }
         val flavorRegex = """(\w+)\s*\{""".toRegex()
         flavorRegex.findAll(flavorBlock).forEach { match ->
-            flavors.add(match.groupValues[1])
+            val flavorName = match.groupValues[1]
+            // Exclude common Gradle keywords
+            if (flavorName !in setOf("android", "productFlavors", "buildTypes")) {
+                flavors.add(flavorName)
+            }
         }
 
         return flavors

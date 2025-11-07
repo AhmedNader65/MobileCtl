@@ -33,12 +33,12 @@ object GoogleServicesParser {
      * Find and parse google-services.json
      * Searches from current directory and parent directories
      */
-    fun findAndParse(startDir: File = File(".")): GoogleServicesConfig {
+    fun findAndParse(startDir: File = File("."), packageId: String): GoogleServicesConfig {
         // Try known paths first
         for (path in KNOWN_PATHS) {
             val file = File(startDir, path)
             if (file.exists()) {
-                return parse(file)
+                return parse(file, packageId)
             }
         }
 
@@ -48,7 +48,7 @@ object GoogleServicesParser {
             for (path in KNOWN_PATHS) {
                 val file = File(current, path)
                 if (file.exists()) {
-                    return parse(file)
+                    return parse(file, packageId)
                 }
             }
             current = current.parentFile ?: return throwNotFound()
@@ -60,7 +60,7 @@ object GoogleServicesParser {
     /**
      * Parse google-services.json file
      */
-    fun parse(file: File): GoogleServicesConfig {
+    fun parse(file: File, packageId: String): GoogleServicesConfig {
         if (!file.exists()) {
             throw Exception("google-services.json not found: ${file.absolutePath}")
         }
@@ -86,7 +86,8 @@ object GoogleServicesParser {
                 throw Exception("'client' array is empty in google-services.json")
             }
 
-            val clientInfo = clients[0].jsonObject
+            val clientInfo = clients.first { it.jsonObject["client_info"]?.jsonObject["android_client_info"]
+                ?.jsonObject?.get("package_name")?.jsonPrimitive?.content == packageId }.jsonObject
             val appId = clientInfo["client_info"]?.jsonObject
                 ?.get("mobilesdk_app_id")?.jsonPrimitive?.content
                 ?: throw Exception("Missing 'mobilesdk_app_id' in google-services.json")

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "321321",
+    "project_id": "mobilectl-323321",
+    "storage_bucket": "mobilectl-3214212.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:177623212963:android:e6169266596403321ad66",
+        "android_client_info": {
+          "package_name": "com.example.delete"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBs4dsa0kvThLBRdrE6KYXKteUUwwL4denw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

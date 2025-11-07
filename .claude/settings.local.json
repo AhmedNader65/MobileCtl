@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gradlew.bat compileKotlin:*)",
+      "Bash(gradlew.bat test:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

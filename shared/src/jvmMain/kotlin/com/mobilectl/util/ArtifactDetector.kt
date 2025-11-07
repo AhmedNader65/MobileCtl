@@ -1,5 +1,6 @@
 package com.mobilectl.util
 
+import com.mobilectl.builder.ArtifactCache
 import java.io.File
 
 /**
@@ -101,10 +102,13 @@ object ArtifactDetector {
     }
 
     /**
-     * Find all APKs in common locations
+     * Find all APKs in common locations using smart module detection
      */
     fun findAllApks(baseDir: File = File(System.getProperty("user.dir"))): List<File> {
-        val buildDir = File(baseDir, "build/outputs/apk")
+        // Try to find Android module directory
+        val moduleDir = findAndroidModuleDir(baseDir) ?: baseDir
+
+        val buildDir = File(moduleDir, "build/outputs/apk")
         return if (buildDir.exists()) {
             buildDir.walk()
                 .filter { it.name.endsWith(".apk") }
@@ -115,14 +119,80 @@ object ArtifactDetector {
     }
 
     /**
+     * Find the Android app module directory
+     * Same logic as AndroidBuilder for consistency
+     */
+    private fun findAndroidModuleDir(baseDir: File): File? {
+        // Try common module names first (fast path)
+        val commonNames = listOf("app", "android", "mobile")
+        for (name in commonNames) {
+            val moduleDir = File(baseDir, name)
+            if (moduleDir.exists() && isAndroidModule(moduleDir)) {
+                return moduleDir
+            }
+        }
+
+        // Fall back to scanning all directories
+        baseDir.listFiles()?.forEach { dir ->
+            if (dir.isDirectory && !dir.name.startsWith(".") && isAndroidModule(dir)) {
+                return dir
+            }
+        }
+
+        return null
+    }
+
+    /**
+     * Check if a directory is an Android module
+     */
+    private fun isAndroidModule(dir: File): Boolean {
+        val gradleFiles = listOf(
+            File(dir, "build.gradle.kts"),
+            File(dir, "build.gradle")
+        )
+
+        for (gradleFile in gradleFiles) {
+            if (gradleFile.exists()) {
+                try {
+                    val content = gradleFile.readText()
+                    if (content.contains("com.android.application") ||
+                        content.contains("com.android.library") ||
+                        content.contains("id(\"com.android.application\")") ||
+                        content.contains("id 'com.android.application'")) {
+                        return true
+                    }
+                } catch (e: Exception) {
+                    // Ignore read errors
+                }
+            }
+        }
+
+        return false
+    }
+
+    /**
      * Find artifact by path (with auto-detection as fallback)
+     * Now checks build cache first before falling back to filesystem search
      */
     fun resolveArtifact(
         path: String?,
         artifactType: ArtifactType = ArtifactType.APK,
-        baseDir: File = File(System.getProperty("user.dir"))
+        baseDir: File = File(System.getProperty("user.dir")),
+        flavor: String? = null,
+        type: String? = null
     ): File? {
-        // If path specified, use it
+        // 1. Check cache first if flavor and type are provided
+        if (flavor != null && type != null && artifactType == ArtifactType.APK) {
+            val cachedPath = ArtifactCache.getArtifactPath(flavor, type)
+            if (cachedPath != null) {
+                val cachedFile = File(cachedPath)
+                if (cachedFile.exists()) {
+                    return cachedFile
+                }
+            }
+        }
+
+        // 2. If path specified, use it
         if (!path.isNullOrBlank()) {
             val file = if (File(path).isAbsolute) {
                 File(path)
@@ -135,7 +205,7 @@ object ArtifactDetector {
             }
         }
 
-        // Fall back to auto-detection
+        // 3. Fall back to auto-detection
         return when (artifactType) {
             ArtifactType.APK -> findAndroidApk(baseDir)
             ArtifactType.AAB -> findAndroidAab(baseDir)

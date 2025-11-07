@@ -279,4 +279,87 @@ class ConfigParserTest {
                 assertTrue(groups.contains("beta-testers"))
                 assertTrue(groups.contains("internal-users"))
         }
+
+        /**
+         * Test toYaml serialization with complete config
+         */
+        @Test
+        fun testToYamlSerialization() {
+                val yaml = """
+            app:
+              name: MyApp
+              identifier: com.example.myapp
+              version: 1.0.0
+
+            version:
+              current: 1.0.0
+              auto_increment: true
+              bump_strategy: patch
+
+            build:
+              android:
+                enabled: true
+                default_flavor: release
+                default_type: release
+                key_store: keystore.jks
+                key_alias: my-key
+
+            deploy:
+              android:
+                enabled: true
+                artifact_path: build/outputs/apk/release/app-release.apk
+                firebase:
+                  enabled: true
+                  service_account: credentials/firebase.json
+                  test_groups:
+                    - qa-team
+                    - beta-testers
+        """.trimIndent()
+
+                val parser = SnakeYamlConfigParser()
+                val config = parser.parse(yaml)
+
+                // Convert back to YAML
+                val outputYaml = parser.toYaml(config)
+
+                // Verify it's not empty and doesn't contain just class name
+                assertTrue(outputYaml.isNotEmpty())
+                assertTrue(!outputYaml.contains("!!com.mobilectl.config.Config"))
+
+                // Parse the output YAML back
+                val reparsedConfig = parser.parse(outputYaml)
+
+                // Verify key fields match
+                assertEquals(config.app.name, reparsedConfig.app.name)
+                assertEquals(config.app.identifier, reparsedConfig.app.identifier)
+                assertEquals(config.version?.current, reparsedConfig.version?.current)
+                assertEquals(config.build.android.enabled, reparsedConfig.build.android.enabled)
+                assertEquals(config.build.android.defaultFlavor, reparsedConfig.build.android.defaultFlavor)
+                assertEquals(config.deploy?.android?.enabled, reparsedConfig.deploy?.android?.enabled)
+                assertEquals(config.deploy?.android?.firebase?.enabled, reparsedConfig.deploy?.android?.firebase?.enabled)
+                assertEquals(config.deploy?.android?.firebase?.testGroups?.size, reparsedConfig.deploy?.android?.firebase?.testGroups?.size)
+        }
+
+        /**
+         * Test toYaml with minimal config
+         */
+        @Test
+        fun testToYamlMinimalConfig() {
+                val yaml = """
+            version:
+              current: 1.0.0
+        """.trimIndent()
+
+                val parser = SnakeYamlConfigParser()
+                val config = parser.parse(yaml)
+
+                // Convert to YAML
+                val outputYaml = parser.toYaml(config)
+
+                // Verify it's properly serialized
+                assertTrue(outputYaml.isNotEmpty())
+                assertTrue(!outputYaml.contains("!!com.mobilectl.config.Config"))
+                assertTrue(outputYaml.contains("version"))
+                assertTrue(outputYaml.contains("1.0.0"))
+        }
 }

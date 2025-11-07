@@ -45,14 +45,35 @@ class JvmFileUpdater : FileUpdater {
             }
 
             val content = file.readText()
-            val updatedContent = if (content.contains("version:")) {
-                content.replace(
-                    """version:[\s\S]*?current:\s*["']?[^"'\n]+["']?""".toRegex(),
-                    """version:
-  current: "$newVersion""""
-                )
+            val lines = content.lines().toMutableList()
+            var updated = false
+
+            // Find and update the current version line
+            for (i in lines.indices) {
+                val line = lines[i]
+                // Match "  current: "1.0.0"" or "  current: 1.0.0"
+                if (line.trimStart().startsWith("current:")) {
+                    val indent = line.takeWhile { it.isWhitespace() }
+                    lines[i] = "${indent}current: \"$newVersion\""
+                    updated = true
+                    break
+                }
+            }
+
+            val updatedContent = if (updated) {
+                lines.joinToString("\n")
             } else {
-                content + "\nversion:\n  current: \"$newVersion\"\n"
+                // If current: doesn't exist, add version block
+                if (content.contains("version:")) {
+                    // Find version: line and add current: after it
+                    val versionIndex = lines.indexOfFirst { it.trimStart().startsWith("version:") }
+                    if (versionIndex != -1) {
+                        lines.add(versionIndex + 1, "  current: \"$newVersion\"")
+                    }
+                    lines.joinToString("\n")
+                } else {
+                    content + "\nversion:\n  current: \"$newVersion\"\n"
+                }
             }
 
             file.writeText(updatedContent)

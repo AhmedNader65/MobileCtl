@@ -215,15 +215,21 @@ class ProjectDetectorTest {
     @Test
     fun testDetectAndroidFlavors_KotlinDsl() {
         File(tempDir, "app").mkdir()
-        File(tempDir, "app/build.gradle.kts").writeText("""
-            android {
-                productFlavors {
-                    create("free") { }
-                    create("paid") { }
-                    create("premium") { }
-                }
-            }
-        """.trimIndent())
+        File(tempDir, "app/build.gradle.kts").writeText(
+            text = """
+                        android {
+                            productFlavors {
+                                create("free") {
+                                
+                                }
+                                create("paid") {
+                                 }
+                                create("premium") { 
+                                }
+                            }
+                        }
+                    """.trimIndent()
+        )
 
         val flavors = detector.detectAndroidFlavors()
 

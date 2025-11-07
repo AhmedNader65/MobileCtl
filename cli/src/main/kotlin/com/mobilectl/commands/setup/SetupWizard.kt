@@ -225,7 +225,7 @@ class SetupWizard(
         return AndroidBuildData(
             enabled = true,
             flavors = flavors,
-            defaultFlavor = defaultFlavor ?: "release",
+            defaultFlavor = defaultFlavor ?: "",
             defaultType = "release",
             keyStorePath = keyStorePath,
             keyAlias = keyAlias,
@@ -328,7 +328,7 @@ class SetupWizard(
             terminal.println("Test groups (comma-separated):")
             val testGroups = readLine()?.trim()
                 ?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }
-                ?: listOf("qa-team")
+                ?: listOf()
 
             FirebaseDestinationData(
                 enabled = true,
@@ -452,7 +452,7 @@ class SetupWizard(
 
         val additionalFiles = if (promptYesNo("Add more?", default = false)) {
             terminal.println("Enter file paths (comma-separated):")
-            val input = terminal.readLineOrNull()?.trim() ?: ""
+            val input = terminal.readLineOrNull(false)?.trim() ?: ""
             input.split(",").map { it.trim() }.filter { it.isNotEmpty() }
         } else {
             emptyList()
@@ -749,7 +749,7 @@ class SetupWizard(
                         storePassword = if (android.useEnvForPasswords) "\${ANDROID_STORE_PASSWORD}" else "",
                         useEnvForPasswords = android.useEnvForPasswords
                     )
-                } else null,
+                } else AndroidBuildConfig(enabled = false),
                 ios = if (buildConfig.ios != null) {
                     val ios = buildConfig.ios!!
                     IosBuildConfig(
@@ -760,7 +760,7 @@ class SetupWizard(
                         codeSignIdentity = ios.codeSignIdentity,
                         provisioningProfile = ios.provisioningProfile
                     )
-                } else null
+                } else IosBuildConfig(enabled = false)
             ),
             version = VersionConfig(
                 enabled = versionConfig.enabled,
@@ -1045,7 +1045,8 @@ data class FirebaseDestinationData(
 data class PlayConsoleDestinationData(
     val enabled: Boolean,
     val serviceAccount: String,
-    val packageName: String
+    val packageName: String,
+    val track: String = "internal"
 )
 
 data class LocalDestinationData(
