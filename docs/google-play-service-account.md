@@ -18,163 +18,212 @@ A Google Play Console service account enables:
 
 Before you begin, make sure you have:
 - **Google Play Console access** with Admin or Account Owner permissions
-- **Google Cloud Platform access** (automatically available with Play Console)
+- **Google Cloud Platform access** (free to create)
 - An app registered in Google Play Console (can be in draft state)
 
-## Step 1: Access Google Play Console API Settings
+## Step 1: Create Google Cloud Project
 
-### 1.1 Navigate to API Access
+### 1.1 Navigate to Google Cloud Platform
 
-1. Go to [Google Play Console](https://play.google.com/console)
-2. Select your app (or any app if setting up for all apps)
-3. In the left sidebar, navigate to **Setup → API access**
+1. Go to [Google Cloud Console](https://console.cloud.google.com)
+2. Sign in with your Google account
 
-::: tip First Time Setup
-If this is your first time accessing the API section, you may need to accept the API Terms of Service.
+### 1.2 Create New Project (or Use Existing)
+
+**Option A: Create New Project**
+1. Click the project dropdown at the top
+2. Click **New Project**
+3. Enter project name (e.g., `my-app-deployment`)
+4. Click **Create**
+
+**Option B: Use Existing Firebase Project (Recommended)**
+
+If you already have a Firebase project:
+1. Click the project dropdown at the top
+2. Select your existing Firebase project
+3. This allows you to use one service account for both Firebase and Play Console!
+
+::: tip Use Existing Firebase Project
+If you're already using Firebase, **select the same Google Cloud project**. This way, you can use one service account for both Firebase App Distribution and Play Console deployment!
 :::
 
-### 1.2 Link to Google Cloud Project
+## Step 2: Enable Google Play Android Developer API
 
-If you haven't linked to a Google Cloud project yet:
-
-1. Click **Link to a Google Cloud project**
-2. Choose an option:
-   - **Create a new Google Cloud project** (recommended for new apps)
-   - **Use an existing Google Cloud project** (if you have one, e.g., from Firebase)
-3. Click **Link**
-
-::: warning Use Existing Firebase Project
-If you're already using Firebase for your app, **select the same Google Cloud project** that Firebase uses. This allows you to use one service account for both Firebase and Play Console!
+::: danger Critical Step - Don't Skip!
+You **must** enable the Google Play Android Developer API. Skipping this step will result in your JSON key being rejected because it won't have access to the Play Console API.
 :::
 
-## Step 2: Create or Use Existing Service Account
+1. With your project selected, go to **APIs & Services → Library**
+   - Or visit: https://console.cloud.google.com/apis/library
+2. In the search box, type: `Google Play Android Developer API`
+3. Click on **Google Play Android Developer API**
+4. Click **ENABLE**
+5. Wait for it to enable (takes a few seconds)
 
-### Option A: Use Existing Service Account (Recommended if you have Firebase)
+You should see "API enabled" confirmation.
 
-If you already have a Firebase service account, you can use it for Play Console too!
+## Step 3: Create Service Account
 
-1. In **Setup → API access**, scroll to **Service accounts**
-2. You should see your existing service account listed
-3. Skip to **Step 3: Grant Play Console Permissions** below
+### 3.1 Navigate to Credentials
 
-### Option B: Create New Service Account
+1. Go to **APIs & Services → Credentials**
+   - Or visit: https://console.cloud.google.com/apis/credentials
+2. Click **Create Credentials** at the top
+3. Select **Service account**
 
-1. In the **Service accounts** section, click **Create new service account**
-2. You'll see instructions to create it in Google Cloud Console
-3. Click **Google Cloud Platform** link (opens in new tab)
+### 3.2 Create Service Account
 
-In the Google Cloud Console:
+On the **Create service account** page:
 
-4. Click **+ CREATE SERVICE ACCOUNT** at the top
-5. Fill in service account details:
-   - **Name**: `mobilectl-deploy` (or `android-deployment`, `app-deployment`)
-   - **ID**: Auto-generated (e.g., `mobilectl-deploy@your-project.iam.gserviceaccount.com`)
+1. Fill in the details:
+   - **Service account name**: `mobilectl-deploy` (or `android-deployment`)
+   - **Service account ID**: Auto-generated (e.g., `mobilectl-deploy@your-project.iam.gserviceaccount.com`)
    - **Description**: `Service account for automated Android app deployment`
 
-6. Click **CREATE AND CONTINUE**
+2. Click **CREATE AND CONTINUE**
 
-7. **Grant roles** (important for Firebase compatibility):
-   - If you want to use this for **both Play Console and Firebase**:
-     - Add role: **Firebase App Distribution Admin**
-     - Add role: **Firebase Admin SDK Administrator Service Agent**
-   - If only for Play Console, you can skip this step
+### 3.3 Grant Editor Role
 
-8. Click **CONTINUE** then **DONE**
+On the **Grant this service account access to project** step:
 
-## Step 3: Download Service Account Key
+1. Click **Select a role** dropdown
+2. Search for `Editor`
+3. Select **Editor** role
+4. Click **CONTINUE**
 
-### 3.1 Generate JSON Key
+::: tip Why Editor Role?
+The Editor role provides the necessary permissions for both Play Console API access and Firebase (if you're using it). This is the recommended role for deployment automation.
+:::
 
-Still in Google Cloud Console:
+5. Skip the optional step "Grant users access to this service account"
+6. Click **DONE**
 
-1. Find your service account in the list
-2. Click on the service account email address
-3. Go to the **KEYS** tab
-4. Click **ADD KEY** → **Create new key**
-5. Choose **JSON** format
-6. Click **CREATE**
+## Step 4: Download JSON Key
 
-The JSON key file will download automatically.
+### 4.1 Find Your Service Account
 
-::: danger Download Only Once
+1. You'll be returned to the Credentials page
+2. Scroll down to **Service Accounts** section
+3. Find the service account you just created
+
+### 4.2 Manage Keys
+
+1. Click on the **Actions** menu (three vertical dots) for your service account
+2. Click **Manage keys**
+
+### 4.3 Create and Download Key
+
+1. Click **ADD KEY**
+2. Select **Create new key**
+3. Choose **JSON** format
+4. Click **CREATE**
+
+The JSON key file will automatically download to your computer.
+
+::: danger Download Only Once!
 You can only download this key file once! Store it securely. If lost, you'll need to create a new key.
 :::
 
-### 3.2 Store the Key Securely
+### 4.4 Store the Key Securely
 
 ```bash
 # Create credentials directory
 mkdir -p credentials
 
-# Rename for clarity (use a name that indicates it works for both!)
+# Rename for clarity
+# If using for BOTH Firebase and Play Console:
 mv ~/Downloads/your-project-*.json credentials/google-service-account.json
+
+# Or if using for Play Console only:
+mv ~/Downloads/your-project-*.json credentials/play-console-service-account.json
 
 # Set restrictive permissions
 chmod 600 credentials/google-service-account.json
 ```
 
 ::: tip Naming Recommendation
-If using for both Firebase and Play Console, name it something generic like:
-- `google-service-account.json`
+If using for both Firebase and Play Console, name it generically:
+- `google-service-account.json` (recommended)
 - `android-deployment-sa.json`
 - `firebase-play-console-sa.json`
-
-This makes it clear it's used for multiple Google services.
 :::
 
-## Step 4: Grant Play Console Permissions
+## Step 5: Grant Play Console Permissions
 
-Now grant this service account access to manage your apps in Play Console.
+Now you need to invite this service account in Google Play Console.
 
-### 4.1 Invite Service Account in Play Console
+### 5.1 Navigate to Users and Permissions
 
-1. Return to **Google Play Console → Setup → API access**
-2. In the **Service accounts** section, find your service account
-3. Click **Grant access** next to the service account name
+1. Go to [Google Play Console](https://play.google.com/console)
+2. Select your app (or any app if setting up for all apps)
+3. In the left sidebar, click **Users and permissions**
+4. Click **Invite new users** button
 
-::: tip Service Account Not Appearing?
-If you just created the service account and it's not showing:
-- Refresh the page
-- Wait 1-2 minutes and try again
-- Make sure you created it in the same Google Cloud project that's linked to Play Console
+::: info Alternative Path
+Some accounts may have this at the account level:
+- Click the settings gear icon
+- Select **Users and permissions**
+- Click **Invite new users**
 :::
 
-### 4.2 Configure App Permissions
+### 5.2 Add Service Account Email
 
-On the **App permissions** tab:
+1. In the **Email address** field, enter the service account email
+   - Find this in the JSON file: look for `client_email`
+   - Format: `mobilectl-deploy@your-project.iam.gserviceaccount.com`
 
-1. Select apps to grant access:
-   - **All current and future apps** (recommended for automation)
-   - Or select specific apps from the list
+2. Don't send a notification email (it's a service account, not a real person)
 
-2. Click **Apply**
+### 5.3 Configure Permissions
 
-### 4.3 Configure Account Permissions
+In the permissions section:
 
-On the **Account permissions** tab, choose permissions:
+**App Permissions:**
+- Select the apps this service account can access:
+  - **All current and future apps** (recommended)
+  - Or select specific apps
 
-**Option 1: Admin (Recommended for full automation)**
-- Select **Admin (all permissions)**
-- This grants all necessary permissions for release management
+**Account Permissions:**
 
-**Option 2: Custom Permissions (More restrictive)**
-- ✅ **View app information and download bulk reports (read only)**
-- ✅ **Release to production, exclude devices, and use app signing**
-- ✅ **Release apps to testing tracks**
-- ✅ **Manage testing track releases**
+::: tip Recommended Permissions
+Select these permissions for full deployment automation:
+:::
+
+**Required for Releases:**
+- ✅ **View app information (read only)**
 - ✅ **Manage production releases**
-- ✅ **Manage app content**
+- ✅ **Manage testing track releases**
 
-3. Click **Invite user** (Note: despite the name, this works for service accounts)
-4. Review the summary and click **Send invite** or **Apply**
+**Store Presence (Recommended):**
+- ✅ **Edit store listing, pricing & distribution**
+- ✅ **Manage store presence**
 
-::: warning Permission Propagation
+**App Access (Read-only):**
+- ✅ **View app information (read only)**
+
+**Financial Data (Optional):**
+- Only if you need to access financial reports
+
+::: warning Minimum Required Permissions
+At minimum, you need:
+- **View app information (read only)**
+- **Manage testing track releases** (for internal/alpha/beta)
+- **Manage production releases** (for production track)
+:::
+
+### 5.4 Invite User
+
+1. Review the permissions
+2. Click **Invite user** button
+3. Click **Send invite** in the confirmation dialog
+
+::: tip Permission Propagation
 It may take a few minutes for permissions to fully propagate. If deployment fails immediately after setup, wait 2-3 minutes and try again.
 :::
 
-## Step 5: Configure MobileCtl
+## Step 6: Configure MobileCtl
 
-### 5.1 For Play Console Only
+### 6.1 For Play Console Only
 
 ```yaml
 # mobileops.yaml
@@ -187,7 +236,9 @@ deploy:
       track: internal  # Options: internal, alpha, beta, production
 ```
 
-### 5.2 For Both Firebase and Play Console (Recommended!)
+### 6.2 For Both Firebase and Play Console (Recommended!)
+
+Use the same service account for both destinations:
 
 ```yaml
 # mobileops.yaml
@@ -209,10 +260,10 @@ deploy:
 ```
 
 ::: tip One Credential, Multiple Destinations
-As long as you granted the service account both Firebase and Play Console permissions, you can use the same JSON file for both deployment destinations. This simplifies credential management significantly!
+If you created the service account in a Firebase project and granted it Editor role, you can use the same JSON file for both Firebase App Distribution and Play Console deployment!
 :::
 
-### 5.3 Test the Setup
+### 6.3 Test the Setup
 
 ```bash
 # Build your app
@@ -272,7 +323,7 @@ mobilectl deploy --platform android --destination play-console --dry-run
 mobilectl deploy --platform android --destination play-console
 ```
 
-Check Google Play Console → Release → Testing → Internal testing to see your build!
+Check **Google Play Console → Release → Testing → Internal testing** to see your build!
 
 ## Troubleshooting
 
@@ -281,15 +332,27 @@ Check Google Play Console → Release → Testing → Internal testing to see yo
 **Cause**: Service account doesn't have required permissions in Play Console
 
 **Solution**:
-1. Go to Play Console → Setup → API access
-2. Find your service account
-3. Click "Manage permissions" or "Grant access"
+1. Go to Play Console → Users and permissions
+2. Find your service account email
+3. Click on it to edit permissions
 4. Ensure it has at least:
-   - View app information
+   - View app information (read only)
    - Manage testing track releases
-   - Release apps to testing tracks
-5. Or simply grant "Admin" permissions
+   - Manage production releases
+5. Save changes
 6. Wait 2-3 minutes for changes to propagate
+
+### Error: "403 Forbidden" or "The API is not enabled"
+
+**Cause**: Google Play Android Developer API is not enabled
+
+**Solution**:
+1. Go to [Google Cloud Console](https://console.cloud.google.com)
+2. Select your project
+3. Go to **APIs & Services → Library**
+4. Search for `Google Play Android Developer API`
+5. Click **ENABLE**
+6. Wait a few minutes and try again
 
 ### Error: "The resource could not be found" or "Package not found"
 
@@ -312,17 +375,15 @@ Check Google Play Console → Release → Testing → Internal testing to see yo
 3. Verify the file isn't empty: `wc -l credentials/google-service-account.json`
 4. If corrupted, re-download from Google Cloud Console
 
-### Service Account Not Appearing in Play Console
+### Service Account Not Found in Play Console
 
-**Cause**: Not created in linked Google Cloud project
+**Cause**: Email address typo or service account not created
 
 **Solution**:
-1. In Play Console → API access, check which GCP project is linked
-2. Go to [Google Cloud Console](https://console.cloud.google.com)
-3. Switch to the correct project (top left dropdown)
-4. Navigate to IAM & Admin → Service Accounts
-5. Verify your service account exists in THIS project
-6. If not, create it in the correct project
+1. Check the `client_email` in your JSON file
+2. Copy it exactly (don't type it manually)
+3. Ensure the service account exists in GCP Console
+4. Verify you're in the correct Google Cloud project
 
 ### Error: "Permission denied" when deploying
 
@@ -386,9 +447,9 @@ deploy:
 Only grant permissions actually needed:
 
 ```
-✓ For internal testing: Release apps to testing tracks
-✓ For production: Release to production + Manage production releases
-✗ Don't grant Admin if you only need testing track access
+✓ For internal testing: Manage testing track releases
+✓ For production: Manage production releases
+✗ Don't grant more permissions than necessary
 ```
 
 ## CI/CD Integration
@@ -484,27 +545,23 @@ deploy:
 
 Just make sure to grant the service account access to all apps in Play Console.
 
-### Different Teams / Organizations
+## Adding Firebase to Existing Service Account
 
-Use separate service accounts:
+If you created this service account for Play Console and want to use it for Firebase too:
 
-```yaml
-# Personal projects
-deploy:
-  android:
-    play_console:
-      service_account: credentials/google-sa-personal.json
-
-# Company projects
-deploy:
-  android:
-    play_console:
-      service_account: credentials/google-sa-company.json
-```
+1. Go to [Google Cloud Console](https://console.cloud.google.com)
+2. Select your project
+3. Go to **IAM & Admin → IAM**
+4. Find your service account
+5. Click the edit icon (pencil)
+6. Click **ADD ANOTHER ROLE**
+7. Add: **Firebase App Distribution Admin**
+8. Click **Save**
+9. Now you can use the same JSON file for both!
 
 ## Related Documentation
 
-- [Firebase Service Account](firebase-service-account) - Set up for Firebase App Distribution (can use same SA!)
+- [Firebase Service Account](firebase-service-account) - Use same service account for Firebase!
 - [Deploy Command](/reference/deploy) - Deployment options and strategies
 - [Setup Wizard](/guide/setup-wizard) - Automated credential configuration
 - [CI/CD Integration](/guide/ci-cd) - Complete automation examples
@@ -515,22 +572,28 @@ deploy:
 - [Google Play Console](https://play.google.com/console)
 - [Google Cloud Console](https://console.cloud.google.com)
 - [Google Play Developer API](https://developers.google.com/android-publisher)
+- [Google Play Android Developer API](https://console.cloud.google.com/apis/library/androidpublisher.googleapis.com)
 - [Service Account Documentation](https://cloud.google.com/iam/docs/service-accounts)
-- [Play Console API Access](https://support.google.com/googleplay/android-developer/answer/6112435)
 
 ---
 
 ::: tip Quick Reference
-**TL;DR for Play Console + Firebase:**
+**TL;DR:**
 
-1. **Setup** → **API access** in Play Console
-2. Link Google Cloud project (use same one as Firebase if applicable)
-3. Create service account in GCP Console (or use existing Firebase one)
-4. Add roles: **Firebase App Distribution Admin** (if using for both)
-5. Download JSON key
-6. Grant access in Play Console with Admin permissions
-7. Use **same JSON file** for both Firebase and Play Console in `mobileops.yaml`
-8. Test: `mobilectl deploy --platform android --destination play-console,firebase`
+1. **Create Google Cloud project** (or use existing Firebase project)
+2. **Enable Google Play Android Developer API** ⚠️ (critical!)
+3. Go to **Credentials → Create Credentials → Service account**
+4. Name it and assign **Editor** role
+5. **Download JSON key**
+6. Go to **Play Console → Users and permissions → Invite new users**
+7. Add service account email with appropriate permissions
+8. Add to `mobileops.yaml`: `service_account: credentials/google-sa.json`
+9. Test: `mobilectl deploy --platform android --destination play-console`
+
+**For Firebase + Play Console (same service account):**
+- Use existing Firebase project in step 1
+- Same service account JSON works for both!
+- Deploy to both: `mobilectl deploy --platform android --destination firebase,play-console`
 
 **One service account. Two destinations. Zero hassle.** ✨
 :::
