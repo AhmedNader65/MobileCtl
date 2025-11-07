@@ -2,13 +2,20 @@
 
 This guide explains how to create a Firebase service account for automated app distribution with MobileCtl.
 
+::: tip One Service Account for Firebase & Play Console
+**Good news!** You can use the **same service account** for both Firebase App Distribution and Google Play Console. No need to create separate credentials - just set up proper permissions for both services.
+
+See also: [Google Play Service Account](google-play-service-account)
+:::
+
 ## Overview
 
-A Firebase service account is required to:
+A Firebase service account enables:
 - Upload APK/AAB files to Firebase App Distribution
 - Distribute builds to testers
 - Manage release notes
 - Add testers to groups programmatically
+- **Bonus:** Can also be used for Google Play Console deployment!
 
 ## Prerequisites
 
@@ -69,20 +76,32 @@ In Google Cloud Console:
 On the **Grant this service account access to project** step:
 
 1. Click **Select a role**
-2. Search for and add these roles:
-   - **Firebase App Distribution Admin** (required)
-   - **Firebase Admin SDK Administrator Service Agent** (recommended)
+2. Search for and add the required role:
+   - **Firebase App Distribution Admin** (required for Firebase)
 
-Or use the comprehensive role:
-   - **Firebase Admin** (includes all Firebase permissions)
+3. **Optional but recommended:** If you want to use this service account for **Google Play Console** too:
+   - You don't need additional GCP roles
+   - Just grant Play Console permissions later (see note below)
 
-3. Click **CONTINUE**
-4. Click **DONE**
+4. Click **CONTINUE**
+5. Click **DONE**
 
 ::: tip Role Options
+**For Firebase only:**
 - **Firebase App Distribution Admin**: Can upload builds and manage testers (minimum required)
-- **Firebase Admin**: Full Firebase access (simplest for all features)
-- **Firebase Admin SDK Administrator Service Agent**: Required for some SDK operations
+- **Firebase Admin**: Full Firebase access (includes all features)
+
+**For Firebase + Play Console (same service account):**
+- **Firebase App Distribution Admin**: Required for Firebase
+- No additional GCP roles needed - Play Console permissions are granted separately in Play Console itself
+:::
+
+::: info Using for Both Firebase and Play Console?
+If you plan to use this service account for both Firebase and Play Console:
+1. Create it here with **Firebase App Distribution Admin** role
+2. Download the JSON key (next step)
+3. Then follow [Google Play Service Account guide](google-play-service-account#step-4-grant-play-console-permissions) Step 4 to grant Play Console permissions
+4. Use the **same JSON file** for both destinations in your config!
 :::
 
 ## Step 3: Generate JSON Key
@@ -107,13 +126,28 @@ This JSON file grants admin access to your Firebase project. Never commit it to 
 Rename the file for clarity:
 
 ```bash
-# Rename downloaded file
-mv ~/Downloads/your-project-abc123-1234567890ab.json firebase-service-account.json
-
 # Move to credentials directory
 mkdir -p credentials
-mv firebase-service-account.json credentials/
+
+# Rename downloaded file
+# If using for BOTH Firebase and Play Console, use a generic name:
+mv ~/Downloads/your-project-abc123-1234567890ab.json credentials/google-service-account.json
+
+# Or if using for Firebase only:
+mv ~/Downloads/your-project-abc123-1234567890ab.json credentials/firebase-service-account.json
+
+# Set restrictive permissions
+chmod 600 credentials/google-service-account.json
 ```
+
+::: tip Naming Recommendation
+If using for both Firebase and Play Console, name it generically:
+- `google-service-account.json` (recommended)
+- `android-deployment-sa.json`
+- `firebase-play-console-sa.json`
+
+This makes it clear it works for multiple Google services.
+:::
 
 ### 3.3 Also Download google-services.json
 
@@ -157,33 +191,62 @@ Common groups:
 
 ## Step 5: Configure MobileCtl
 
-### 5.1 Update mobileops.yaml
-
-Add Firebase configuration:
+### 5.1 Firebase Only Configuration
 
 ```yaml
+# mobileops.yaml
 deploy:
   android:
     firebase:
       enabled: true
       service_account: credentials/firebase-service-account.json
-      google_services: app/google-services.json  # Path to google-services.json
+      google_services: app/google-services.json
       release_notes: "Automated build from MobileCtl"
       test_groups:
         - qa-team
         - beta-testers
 ```
 
-### 5.2 Test Configuration
+### 5.2 Firebase + Play Console (Recommended!)
 
-Verify the setup:
+Use the same service account for both destinations:
+
+```yaml
+# mobileops.yaml
+deploy:
+  android:
+    firebase:
+      enabled: true
+      service_account: credentials/google-service-account.json  # Same file!
+      google_services: app/google-services.json
+      test_groups:
+        - qa-team
+        - internal
+
+    play_console:
+      enabled: true
+      service_account: credentials/google-service-account.json  # Same file!
+      package_name: com.example.yourapp
+      track: internal
+```
+
+::: tip One Credential, Multiple Destinations
+If you granted both Firebase and Play Console permissions to your service account, you can use the same JSON file for both deployment destinations. This simplifies credential management!
+
+To add Play Console permissions: Follow [Step 4 of the Play Console guide](google-play-service-account#step-4-grant-play-console-permissions)
+:::
+
+### 5.3 Test Configuration
 
 ```bash
 # Build your app
 mobilectl build android
 
-# Deploy to Firebase
+# Deploy to Firebase only
 mobilectl deploy --platform android --destination firebase
+
+# Or deploy to both Firebase and Play Console at once:
+mobilectl deploy --platform android --destination firebase,play-console
 ```
 
 ## Step 6: Verify Setup
@@ -477,9 +540,9 @@ deploy:
 
 ## Related Documentation
 
+- [Google Play Service Account](google-play-service-account) - Use same service account for Play Console!
 - [Deploy Command](/reference/deploy) - Using Firebase deployment
 - [Setup Wizard](/guide/setup-wizard) - Automated credential configuration
-- [Google Play Service Account](google-play-service-account) - For Play Console
 - [CI/CD Integration](/guide/ci-cd) - Automating deployments
 - [Configuration Reference](/reference/config-deploy) - All deployment options
 
@@ -493,11 +556,20 @@ deploy:
 ---
 
 ::: tip Quick Reference
-**TL;DR:**
+**TL;DR for Firebase only:**
 1. Firebase Console → Project settings → Service accounts
 2. Create service account in GCP with **Firebase App Distribution Admin** role
 3. Download JSON key
-4. Add to `mobileops.yaml`: `service_account: credentials/firebase-sa.json`
-5. Create test groups in Firebase Console
+4. Create test groups in Firebase Console
+5. Add to `mobileops.yaml`: `service_account: credentials/firebase-sa.json`
 6. Test: `mobilectl deploy --platform android --destination firebase`
+
+**TL;DR for Firebase + Play Console (same service account):**
+1. Create service account with **Firebase App Distribution Admin** role
+2. Download JSON key → save as `credentials/google-service-account.json`
+3. Grant Play Console permissions via Play Console → API access
+4. Use **same JSON file** for both in `mobileops.yaml`
+5. Test: `mobilectl deploy --platform android --destination firebase,play-console`
+
+**One service account. Two destinations. Zero hassle.** ✨
 :::
