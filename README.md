@@ -2,10 +2,12 @@ Modern DevOps automation for mobile apps. Build, version, and deploy iOS & Andro
 
 ## ✨ Features
 
+- 🚀 **Setup Wizard** — Interactive wizard generates complete configuration (NEW!)
 - 🏗️ **Build Automation** — Compile Android & iOS apps with one command
 - 🔢 **Version Bumping** — Automatic semantic versioning with multi-file support
 - 📝 **Changelog Generation** — Auto-generated from conventional commits with backup/restore
-- 📦 **Artifact Upload** — Push builds to Firebase, local storage, etc.
+- 📦 **Deploy & Upload** — Push builds to Firebase, Play Console, TestFlight
+- 🤖 **CI/CD Integration** — Auto-generate GitHub Actions & GitLab CI workflows
 - 📧 **Notifications** — Slack, email, and webhook support
 - 🔒 **Production Ready** — Atomic writes, automatic backups, comprehensive validation
 - ⚡ **Modern Stack** — Kotlin Multiplatform, JGit, no Ruby!
@@ -16,42 +18,49 @@ Modern DevOps automation for mobile apps. Build, version, and deploy iOS & Andro
 
 Coming soon — Homebrew, direct download, etc.
 
-### Basic Usage
-Create mobileops.yaml in your project root
-mobilectl build android # Build Android app
-mobilectl version bump # Bump version (major/minor/patch)
-mobilectl changelog generate # Generate changelog
-mobilectl upload --destination firebase # Upload artifact
+### Setup Wizard (Recommended)
 
+The easiest way to get started is with the interactive setup wizard:
+
+```bash
+# Run the comprehensive setup wizard
+mobilectl setup
 ```
 
+The wizard guides you through 8 phases to generate your complete configuration:
+1. **Project Information** (auto-detected)
+2. **Build Configuration** (flavors, signing)
+3. **Deployment Destinations** (Firebase, Play Console, TestFlight)
+4. **Version Management** (auto-increment, bump strategy)
+5. **Changelog** (format, output)
+6. **Deployment Groups** (flavor grouping)
+7. **CI/CD Setup** (GitHub Actions, GitLab CI)
+8. **Review & Confirm**
 
-# Create config file
+**What it generates:**
+- ✅ Complete `mobileops.yaml` configuration
+- ✅ `.github/workflows/mobilectl-deploy.yml` (optional)
+- ✅ `.gitlab-ci.yml` (optional)
+- ✅ `docs/SETUP.md` (setup summary)
 
-echo "changelog:
-enabled: true
-format: markdown
-output_file: CHANGELOG.md
-commit_types:
-- type: feat
-title: Features
-emoji: ✨
-- type: fix
-title: Bug Fixes
-emoji: 🐛" > mobileops.yml
+[📖 Read the Full Setup Guide](docs/setup.md)
 
-# Generate changelog
+### Basic Usage
 
-mobilectl changelog generate
+After setup, you're ready to go:
+
+```bash
+# Build your app
+mobilectl build
+
+# Deploy to all configured destinations
+mobilectl deploy --all-variants -y
 
 # Bump version
-
 mobilectl version bump patch
 
-# Build
-
-mobilectl build android
-
+# Generate changelog
+mobilectl changelog generate
 ```
 
 ## 📋 Configuration
@@ -134,33 +143,35 @@ destinations:
 
 ## 🏃 Quick Commands
 
-```
-
-
-# Changelog
-
-mobilectl changelog generate           \# Generate changelog
-mobilectl changelog generate --dry-run \# Preview
-mobilectl changelog generate --append  \# Append to existing
-mobilectl changelog backups            \# List backups
-mobilectl changelog restore BACKUP_ID  \# Restore backup
-
-# Version
-
-mobilectl version bump major   \# Bump major version
-mobilectl version bump minor   \# Bump minor version
-mobilectl version bump patch   \# Bump patch version
+```bash
+# Setup (First-time)
+mobilectl setup                       # Interactive setup wizard
+mobilectl setup --force               # Overwrite existing config
 
 # Build
+mobilectl build                       # Build all platforms
+mobilectl build android               # Build Android APK/AAB
+mobilectl build ios                   # Build iOS app
 
-mobilectl build android        \# Build Android APK/AAB
-mobilectl build ios            \# Build iOS app
+# Deploy
+mobilectl deploy --all-variants       # Deploy all flavor variants
+mobilectl deploy --group production   # Deploy flavor group
+mobilectl deploy firebase             # Deploy to Firebase
+mobilectl deploy testflight           # Deploy to TestFlight
 
-# Deploy (Coming in v0.3.0)
+# Version
+mobilectl version bump major          # Bump major version
+mobilectl version bump minor          # Bump minor version
+mobilectl version bump patch          # Bump patch version
 
-mobilectl deploy firebase      \# Deploy to Firebase
-mobilectl deploy testflight    \# Deploy to TestFlight
+# Changelog
+mobilectl changelog generate          # Generate changelog
+mobilectl changelog generate --dry-run # Preview
+mobilectl changelog generate --append # Append to existing
+mobilectl changelog restore BACKUP_ID # Restore backup
 
+# Info
+mobilectl info                        # Show project configuration
 ```
 
 ## 🔍 Key Improvements in v0.2.0
@@ -205,6 +216,7 @@ MIT License — see [LICENSE](LICENSE) file.
 ## 💬 Support
 
 Have questions?
+- 🚀 **New to mobilectl?** Start with the [Setup Guide](docs/setup.md)
 - Open an [issue on GitHub](https://github.com/AhmedNader65/MobileCtl/issues)
 - Check the [documentation](docs/)
 - Read the [configuration guide](docs/config-reference.md)
