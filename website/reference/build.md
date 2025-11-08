@@ -75,7 +75,7 @@ mobilectl build android production release
 
 1. Detects Android project structure
 2. Configures Gradle based on flavor and type
-3. Runs `./gradlew assemble<Flavor><Type>`
+3. Runs `./gradlew bundle<Flavor><Type>`
 4. Signs APK/AAB with configured keystore
 5. Outputs artifact location
 
@@ -89,7 +89,7 @@ Flavor: production
 Type: release
 Signing: Enabled
 
-Running: ./gradlew assembleProductionRelease
+Running: ./gradlew bundleProductionRelease
 
 Build successful!
 
@@ -385,7 +385,7 @@ Build Configuration:
   Keystore: release.keystore
 
 Would execute:
-  ./gradlew assembleProductionRelease
+  ./gradlew bundleProductionRelease
 
 Output would be:
   android/app/build/outputs/apk/production/release/app-production-release.apk

@@ -1,9 +1,7 @@
 package com.mobilectl.detector
 
 import com.mobilectl.model.Platform
-import com.mobilectl.util.FileOperations
-import com.mobilectl.util.createFileOperations
-import com.mobilectl.util.createLogger
+import com.mobilectl.util.PremiumLogger
 import java.io.File
 
 fun createProjectDetector(): ProjectDetector = JvmProjectDetectorImpl()
@@ -12,36 +10,34 @@ fun createProjectDetector(): ProjectDetector = JvmProjectDetectorImpl()
  * JVM implementation
  */
 class JvmProjectDetectorImpl() : ProjectDetector {
-
-    private val logger = createLogger("ProjectDetector")
-
+    
     override fun detectPlatforms(androidEnabled: Boolean, iosEnabled: Boolean): Set<Platform> {
         val detected = mutableSetOf<Platform>()
 
-        logger.debug("Detecting platforms (androidEnabled=$androidEnabled, iosEnabled=$iosEnabled)")
-        logger.debug("Working directory: ${File(".").absolutePath}")
+        PremiumLogger.info("Detecting platforms (androidEnabled=$androidEnabled, iosEnabled=$iosEnabled)")
+        PremiumLogger.info("Working directory: ${File(".").absolutePath}")
         var checkAndroid = androidEnabled
         var checkIos = iosEnabled
         if (!androidEnabled && !iosEnabled) {
             checkAndroid = true
             checkIos = true
-            logger.debug("No platforms explicitly enabled, checking both Android and iOS")
+            PremiumLogger.warning("No platforms explicitly enabled, checking both Android and iOS")
         }
         if (checkAndroid) {
             if (isAndroidProject()) {
-                logger.info("✅ Android project detected")
+                PremiumLogger.info("✅ Android project detected")
                 detected.add(Platform.ANDROID)
             } else {
-                logger.debug("❌ Android project not detected")
+                PremiumLogger.info("❌ Android project not detected")
             }
         }
 
         if (checkIos) {
             if (isIosProject()) {
-                logger.info("✅ iOS project detected")
+                PremiumLogger.info("✅ iOS project detected")
                 detected.add(Platform.IOS)
             } else {
-                logger.debug("❌ iOS project not detected")
+                PremiumLogger.error("❌ iOS project not detected")
             }
         }
 
@@ -50,11 +46,11 @@ class JvmProjectDetectorImpl() : ProjectDetector {
 
     override fun isAndroidProject(): Boolean {
         val baseDir = "."
-        logger.debug("Scanning for Android project in: $baseDir")
+        PremiumLogger.info("Scanning for Android project in: $baseDir")
 
         val baseFile = File(baseDir)
         if (!baseFile.exists() || !baseFile.isDirectory) {
-            logger.debug("Base directory doesn't exist: $baseDir")
+            PremiumLogger.info("Base directory doesn't exist: $baseDir")
             return false
         }
 
@@ -63,38 +59,38 @@ class JvmProjectDetectorImpl() : ProjectDetector {
             file.name == "build.gradle" || file.name == "build.gradle.kts"
         }
 
-        logger.debug("Found ${allBuildFiles.size} build.gradle files")
+        PremiumLogger.info("Found ${allBuildFiles.size} build.gradle files")
 
         // Look for AndroidManifest.xml (indicates Android project)
         val hasAndroidManifest = findFilesRecursively(baseDir, maxDepth = 3) { file ->
             file.name == "AndroidManifest.xml"
         }.isNotEmpty()
 
-        logger.debug("Has AndroidManifest.xml: $hasAndroidManifest")
+        PremiumLogger.info("Has AndroidManifest.xml: $hasAndroidManifest")
 
         // Check for settings.gradle (indicates multi-module project)
         val hasSettingsGradle = File(baseDir, "settings.gradle").exists() ||
                 File(baseDir, "settings.gradle.kts").exists()
 
-        logger.debug("Has settings.gradle: $hasSettingsGradle")
+        PremiumLogger.info("Has settings.gradle: $hasSettingsGradle")
 
         // Android project if:
         // - Has build.gradle/build.gradle.kts AND AndroidManifest.xml, OR
         // - Has settings.gradle (multi-module like flutter/react-native)
         val isAndroid = (allBuildFiles.isNotEmpty() && hasAndroidManifest) || hasSettingsGradle
 
-        logger.debug("Is Android project: $isAndroid")
+        PremiumLogger.info("Is Android project: $isAndroid")
 
         return isAndroid
     }
 
     override fun isIosProject(): Boolean {
         val baseDir = "."
-        logger.debug("Scanning for iOS project in: $baseDir")
+        PremiumLogger.info("Scanning for iOS project in: $baseDir")
 
         val baseFile = File(baseDir)
         if (!baseFile.exists() || !baseFile.isDirectory) {
-            logger.debug("Base directory doesn't exist: $baseDir")
+            PremiumLogger.error("Base directory doesn't exist: $baseDir")
             return false
         }
 
@@ -103,14 +99,14 @@ class JvmProjectDetectorImpl() : ProjectDetector {
             file.isDirectory && (file.name.endsWith(".xcodeproj") || file.name.endsWith(".xcworkspace"))
         }
 
-        logger.debug("Found ${xcodeProjects.size} Xcode projects")
+        PremiumLogger.info("Found ${xcodeProjects.size} Xcode projects")
 
         // Look for Info.plist (iOS app configuration)
         val hasInfoPlist = findFilesRecursively(baseDir, maxDepth = 3) { file ->
             file.name == "Info.plist"
         }.isNotEmpty()
 
-        logger.debug("Has Info.plist: $hasInfoPlist")
+        PremiumLogger.info("Has Info.plist: $hasInfoPlist")
 
         // Look for podfile (CocoaPods dependency management)
         val hasPodfile = File(baseDir, "Podfile").exists() ||
@@ -119,7 +115,7 @@ class JvmProjectDetectorImpl() : ProjectDetector {
                     file.name == "Podfile" || file.name == "Podfile.lock"
                 }.isNotEmpty()
 
-        logger.debug("Has Podfile: $hasPodfile")
+        PremiumLogger.info("Has Podfile: $hasPodfile")
 
         // iOS project if:
         // - Has .xcodeproj/.xcworkspace, OR
@@ -127,7 +123,7 @@ class JvmProjectDetectorImpl() : ProjectDetector {
         // - Has Podfile (likely iOS)
         val isIos = xcodeProjects.isNotEmpty() || hasInfoPlist || hasPodfile
 
-        logger.debug("Is iOS project: $isIos")
+        PremiumLogger.info("Is iOS project: $isIos")
 
         return isIos
     }
@@ -163,7 +159,7 @@ class JvmProjectDetectorImpl() : ProjectDetector {
                 }
             }
         } catch (e: Exception) {
-            logger.debug("Error scanning directory: ${e.message}")
+            PremiumLogger.error("Error scanning directory: ${e.message}")
         }
 
         return results

@@ -13,6 +13,7 @@ import com.mobilectl.model.deploy.TestFlightDestination
 import com.mobilectl.model.versionManagement.VersionConfig
 import com.mobilectl.util.ArtifactDetector
 import com.mobilectl.util.ArtifactType
+import com.mobilectl.util.PremiumLogger
 import java.io.File
 
 /**
@@ -72,10 +73,16 @@ class SmartDefaultsProvider(
     fun detectEnvironment(): String {
         return try {
             val process = ProcessBuilder("git", "branch", "--show-current")
+                .directory(File(workingPath))
                 .redirectErrorStream(true)
                 .start()
             val branch = process.inputStream.bufferedReader().readText().trim()
-            process.waitFor()
+            val exitCode = process.waitFor()
+
+            // If git command failed (e.g., not a git repo), default to "dev"
+            if (exitCode != 0) {
+                return "dev"
+            }
 
             when {
                 branch == "main" || branch == "master" -> "production"
@@ -95,14 +102,14 @@ class SmartDefaultsProvider(
         )
 
         if (artifact != null && ArtifactDetector.isDebugBuild(artifact)) {
-            com.mobilectl.util.PremiumLogger.simpleWarning("Debug APK detected!")
-            com.mobilectl.util.PremiumLogger.info("This is meant for testing only")
-            com.mobilectl.util.PremiumLogger.info("For production: ./gradlew assembleRelease")
+            PremiumLogger.simpleWarning("Debug APK detected!")
+            PremiumLogger.info("This is meant for testing only")
+            PremiumLogger.info("For production: ./gradlew bundleRelease")
             println()
         }
 
         if (verbose && artifact != null) {
-            com.mobilectl.util.PremiumLogger.simpleSuccess("Auto-detected Android artifact: ${artifact.name}")
+            PremiumLogger.simpleSuccess("Auto-detected Android artifact: ${artifact.name}")
         }
 
         return artifact
@@ -116,7 +123,7 @@ class SmartDefaultsProvider(
         )
 
         if (verbose && artifact != null) {
-            com.mobilectl.util.PremiumLogger.simpleSuccess("Auto-detected iOS artifact: ${artifact.name}")
+            PremiumLogger.simpleSuccess("Auto-detected iOS artifact: ${artifact.name}")
         }
 
         return artifact
@@ -129,7 +136,7 @@ class SmartDefaultsProvider(
 
             if (serviceAccountFile == null) {
                 if (verbose) {
-                    com.mobilectl.util.PremiumLogger.info("Firebase: Service account not found (will fail at deploy)")
+                    PremiumLogger.info("Firebase: Service account not found (will fail at deploy)")
                 }
                 return FirebaseAndroidDestination(
                     enabled = true,
@@ -138,9 +145,9 @@ class SmartDefaultsProvider(
             }
 
             if (verbose) {
-                com.mobilectl.util.PremiumLogger.simpleSuccess("Auto-detected Firebase: ${serviceAccountFile.absolutePath}")
+                PremiumLogger.simpleSuccess("Auto-detected Firebase: ${serviceAccountFile.absolutePath}")
                 if (googleServicesFile != null) {
-                    com.mobilectl.util.PremiumLogger.simpleSuccess("Auto-detected google-services.json: ${googleServicesFile.absolutePath}")
+                    PremiumLogger.simpleSuccess("Auto-detected google-services.json: ${googleServicesFile.absolutePath}")
                 }
             }
 
@@ -151,7 +158,7 @@ class SmartDefaultsProvider(
             )
         } catch (e: Exception) {
             if (verbose) {
-                com.mobilectl.util.PremiumLogger.simpleWarning("Firebase auto-detection failed: ${e.message}")
+                PremiumLogger.simpleWarning("Firebase auto-detection failed: ${e.message}")
             }
             FirebaseAndroidDestination()
         }

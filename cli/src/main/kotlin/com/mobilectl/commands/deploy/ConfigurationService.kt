@@ -4,6 +4,7 @@ import com.mobilectl.config.Config
 import com.mobilectl.config.ConfigLoader
 import com.mobilectl.detector.createProjectDetector
 import com.mobilectl.model.deploy.DeployConfig
+import com.mobilectl.util.PremiumLogger
 import com.mobilectl.util.createFileUtil
 import java.io.File
 
@@ -27,7 +28,7 @@ class ConfigurationService(
             loadAndMergeConfig(configFile)
         } else {
             if (verbose) {
-                com.mobilectl.util.PremiumLogger.info("No config file found, using auto-detected defaults")
+                PremiumLogger.info("No config file found, using auto-detected defaults")
             }
             smartDefaultsProvider.createSmartDefaults()
         }
@@ -49,7 +50,7 @@ class ConfigurationService(
             }
         } catch (e: Exception) {
             if (verbose) {
-                com.mobilectl.util.PremiumLogger.simpleWarning("Failed to load config: ${e.message}")
+                PremiumLogger.simpleWarning("Failed to load config: ${e.message}")
             }
             smartDefaultsProvider.createSmartDefaults()
         }

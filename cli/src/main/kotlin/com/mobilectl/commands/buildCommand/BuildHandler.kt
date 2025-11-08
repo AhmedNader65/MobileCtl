@@ -1,12 +1,13 @@
 package com.mobilectl.commands.buildCommand
 
-import com.mobilectl.builder.AndroidBuilder
+import com.mobilectl.builder.android.AndroidBuilder
 import com.mobilectl.builder.BuildOrchestrator
 import com.mobilectl.builder.IosBuilder
 import com.mobilectl.builder.JvmBuildManager
 import com.mobilectl.config.ConfigLoader
 import com.mobilectl.detector.createProjectDetector
 import com.mobilectl.model.Platform
+import com.mobilectl.util.PremiumLogger
 import com.mobilectl.util.createFileUtil
 import com.mobilectl.util.createProcessExecutor
 import java.io.File
@@ -56,7 +57,7 @@ class BuildHandler(
             printSummary(targetPlatforms)
 
             if (dryRun) {
-                com.mobilectl.util.PremiumLogger.simpleInfo("DRY-RUN mode - nothing will actually be built")
+                PremiumLogger.simpleInfo("DRY-RUN mode - nothing will actually be built")
                 return
             }
 
@@ -105,7 +106,7 @@ class BuildHandler(
             if (type != null) items["Type"] = type!!
         }
 
-        com.mobilectl.util.PremiumLogger.box("Build Configuration", items, success = true)
+        PremiumLogger.box("Build Configuration", items, success = true)
     }
 
     private suspend fun executeBuild(
@@ -146,7 +147,7 @@ class BuildHandler(
                 }
             }
 
-            com.mobilectl.util.PremiumLogger.box(
+            PremiumLogger.box(
                 if (output.success) "Build Successful" else "Build Failed",
                 items,
                 success = output.success
@@ -154,14 +155,14 @@ class BuildHandler(
         }
 
         if (result.success) {
-            com.mobilectl.util.PremiumLogger.simpleSuccess(result.message)
+            PremiumLogger.simpleSuccess(result.message)
         } else {
-            com.mobilectl.util.PremiumLogger.simpleError(result.message)
+            PremiumLogger.simpleError(result.message)
         }
 
         if (verbose && result.totalDurationMs > 0) {
             val seconds = result.totalDurationMs / 1000.0
-            com.mobilectl.util.PremiumLogger.info("Total time: ${String.format("%.2f", seconds)}s")
+            PremiumLogger.info("Total time: ${String.format("%.2f", seconds)}s")
         }
         out.println()
     }

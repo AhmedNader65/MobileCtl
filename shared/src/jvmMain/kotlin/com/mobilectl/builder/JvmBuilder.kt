@@ -1,14 +1,12 @@
 package com.mobilectl.builder
 
+import com.mobilectl.builder.android.AndroidBuilder
 import com.mobilectl.config.Config
 import com.mobilectl.model.Platform
-import com.mobilectl.model.buildConfig.BuildConfig
+import com.mobilectl.util.PremiumLogger
 import com.mobilectl.util.ProcessExecutor
-import com.mobilectl.util.createLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-
-private val logger = createLogger("BuildManager")
 
 class JvmBuildManager(
     private val androidBuilder: AndroidBuilder,
@@ -44,7 +42,7 @@ class IosBuilder(
         val startTime = System.currentTimeMillis()
 
         return try {
-            logger.info("Building iOS from: $baseDir")
+            PremiumLogger.info("Building iOS from: $baseDir")
 
             val result = processExecutor.execute(
                 command = "xcodebuild",
@@ -60,7 +58,7 @@ class IosBuilder(
             val duration = System.currentTimeMillis() - startTime
 
             if (result.success) {
-                logger.info("✅ iOS build succeeded")
+                PremiumLogger.info("✅ iOS build succeeded")
                 BuildOutput(
                     success = true,
                     platform = Platform.IOS,
@@ -68,7 +66,7 @@ class IosBuilder(
                     durationMs = duration
                 )
             } else {
-                logger.warn("❌ iOS build failed: ${result.stderr}")
+                PremiumLogger.warning("❌ iOS build failed: ${result.stderr}")
                 BuildOutput(
                     success = false,
                     platform = Platform.IOS,
@@ -78,7 +76,7 @@ class IosBuilder(
             }
         } catch (e: Exception) {
             val duration = System.currentTimeMillis() - startTime
-            logger.error("iOS build error: ${e.message}")
+            PremiumLogger.error("iOS build error: ${e.message}")
 
             BuildOutput(
                 success = false,

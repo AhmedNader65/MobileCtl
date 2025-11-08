@@ -509,7 +509,7 @@ build:
 ```ruby
 # Fastfile
 lane :deploy do
-  gradle(task: "assembleRelease")
+  gradle(task: "bundleRelease")
   firebase_app_distribution(
     groups: "qa-team"
   )

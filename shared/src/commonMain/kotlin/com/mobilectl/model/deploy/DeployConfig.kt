@@ -47,7 +47,9 @@ data class FirebaseAndroidDestination(
 data class PlayConsoleAndroidDestination(
     val enabled: Boolean = false,
     val serviceAccount: String = "credentials/play-console-service-account.json",
-    val packageName: String = ""
+    val packageName: String = "",
+    val track: String = "internal",
+    val status: String = "draft"
 )
 
 /**

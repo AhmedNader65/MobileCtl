@@ -3,8 +3,7 @@ package com.mobilectl.builder
 import com.mobilectl.config.Config
 import com.mobilectl.detector.ProjectDetector
 import com.mobilectl.model.Platform
-import com.mobilectl.util.Logger
-import com.mobilectl.util.createLogger
+import com.mobilectl.util.PremiumLogger
 
 /**
  * High-level build orchestration (platform-independent)
@@ -14,7 +13,6 @@ class BuildOrchestrator(
     private val buildManager: BuildManager,
 
 ) {
-    private val logger = createLogger("BuildOrchestrator")
 
     suspend fun build(
         config: Config,
@@ -30,7 +28,7 @@ class BuildOrchestrator(
             )
 
             if (targetPlatforms.isEmpty()) {
-                logger.error("No platforms to build. Enable Android or iOS in config.")
+                PremiumLogger.error("No platforms to build. Enable Android or iOS in config.")
                 return BuildResult(
                     success = false,
                     outputs = emptyList()
@@ -38,11 +36,11 @@ class BuildOrchestrator(
             }
 
             if (verbose) {
-                logger.info("Building platforms: ${targetPlatforms.joinToString(", ")}")
+                PremiumLogger.info("Building platforms: ${targetPlatforms.joinToString(", ")}")
             }
 
             if (dryRun) {
-                logger.info("DRY-RUN mode: showing what would be built")
+                PremiumLogger.info("DRY-RUN mode: showing what would be built")
                 return BuildResult(
                     success = true,
                     outputs = targetPlatforms.map { platform ->
@@ -60,7 +58,7 @@ class BuildOrchestrator(
 
             buildManager.build(targetPlatforms, config)
         } catch (e: Exception) {
-            logger.error("Build failed", e)
+            PremiumLogger.error("Build failed ${e.message}")
             BuildResult(
                 success = false,
                 outputs = emptyList()

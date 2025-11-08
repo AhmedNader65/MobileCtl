@@ -6,6 +6,7 @@ import com.mobilectl.changelog.createChangelogStateManager
 import com.mobilectl.changelog.createChangelogWriter
 import com.mobilectl.config.ConfigLoader
 import com.mobilectl.detector.createProjectDetector
+import com.mobilectl.util.PremiumLogger
 import com.mobilectl.util.createFileUtil
 import java.io.File
 import java.io.PrintWriter
@@ -28,7 +29,7 @@ class ChangelogUpdateHandler(
 
             val changelogConfig = config.changelog ?: return
             if (!changelogConfig.enabled) {
-                com.mobilectl.util.PremiumLogger.simpleWarning("Changelog is disabled in config")
+                PremiumLogger.simpleWarning("Changelog is disabled in config")
                 return
             }
 
@@ -36,8 +37,8 @@ class ChangelogUpdateHandler(
             val existingContent = writer.read(changelogConfig.outputFile)
 
             if (existingContent == null) {
-                com.mobilectl.util.PremiumLogger.simpleWarning("No existing changelog found")
-                com.mobilectl.util.PremiumLogger.info("Generate one with: mobilectl changelog generate")
+                PremiumLogger.simpleWarning("No existing changelog found")
+                PremiumLogger.info("Generate one with: mobilectl changelog generate")
                 return
             }
 
@@ -45,8 +46,8 @@ class ChangelogUpdateHandler(
             val orchestrator = ChangelogOrchestrator(parser, writer,
                 createChangelogStateManager(), changelogConfig)
 
-            com.mobilectl.util.PremiumLogger.section("Updating Changelog")
-            com.mobilectl.util.PremiumLogger.detail("File", changelogConfig.outputFile)
+            PremiumLogger.section("Updating Changelog")
+            PremiumLogger.detail("File", changelogConfig.outputFile)
 
             val result = orchestrator.generate(
                 fromTag = null,
@@ -54,14 +55,14 @@ class ChangelogUpdateHandler(
             )
 
             if (!result.success) {
-                com.mobilectl.util.PremiumLogger.error(result.error ?: "Update failed")
-                com.mobilectl.util.PremiumLogger.sectionEnd()
+                PremiumLogger.error(result.error ?: "Update failed")
+                PremiumLogger.sectionEnd()
                 return
             }
 
-            com.mobilectl.util.PremiumLogger.success("Changelog updated")
-            com.mobilectl.util.PremiumLogger.detail("Commits", "${result.commitCount} processed", dim = true)
-            com.mobilectl.util.PremiumLogger.sectionEnd()
+            PremiumLogger.success("Changelog updated")
+            PremiumLogger.detail("Commits", "${result.commitCount} processed", dim = true)
+            PremiumLogger.sectionEnd()
 
             if (verbose && result.content != null) {
                 println("\n${result.content}")

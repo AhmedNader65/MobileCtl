@@ -7,22 +7,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.delay
 import java.io.File
 
-actual interface ProcessExecutor {
-    actual suspend fun execute(
-        command: String,
-        args: List<String>,
-        workingDir: String,
-        env: Map<String, String>
-    ): ProcessResult
-
-    suspend fun executeWithProgress(
-        command: String,
-        args: List<String>,
-        workingDir: String,
-        env: Map<String, String> = emptyMap(),
-        onProgress: (String) -> Unit
-    ): ProcessResult
-}
 
 actual fun createProcessExecutor(): ProcessExecutor = JvmProcessExecutorImpl()
 

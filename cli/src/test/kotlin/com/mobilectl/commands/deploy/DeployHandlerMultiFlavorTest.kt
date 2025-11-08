@@ -22,10 +22,19 @@ import kotlin.test.assertFalse
  * - Flavor loop iteration
  * - Default flavor fallback
  *
- * NOTE: After refactoring, these tests now test DeploymentWorkflow directly
- * since that's where the flavor selection logic lives (Single Responsibility Principle)
+ * Uses FlavorOptions data class (refactored API)
  */
 class DeployHandlerMultiFlavorTest {
+
+    private val workflow by lazy {
+        val workingPath = System.getProperty("user.dir")
+        val detector = createProjectDetector()
+        DeploymentWorkflow(
+            workingPath = workingPath,
+            detector = detector,
+            verbose = false
+        )
+    }
 
     // ═════════════════════════════════════════════════════════════
     // FLAVOR SELECTION DECISION TREE
@@ -42,13 +51,13 @@ class DeployHandlerMultiFlavorTest {
      */
     @Test
     fun testAllVariantsSelectsAllFlavors() {
-        val workflow = createDeploymentWorkflow(allVariants = true)
-
         val config = createConfigWithFlavors(
             flavors = listOf("free", "paid", "premium")
         )
+        val options = FlavorOptions(allFlavors = true)
 
-        val selected = workflow.selectFlavorsToDeploy(config)
+        val selected = workflow.selectFlavorsToDeploy(config, options)
+
         assertEquals(
             listOf("free", "paid", "premium"),
             selected,
@@ -67,14 +76,14 @@ class DeployHandlerMultiFlavorTest {
      */
     @Test
     fun testAllVariantsWithNoConfiguredFlavors() {
-        val workflow = createDeploymentWorkflow(allVariants = true)
-
         val config = createConfigWithFlavors(
             flavors = emptyList(),
             defaultFlavor = ""
         )
+        val options = FlavorOptions(allFlavors = true)
 
-        val selected = workflow.selectFlavorsToDeploy(config)
+        val selected = workflow.selectFlavorsToDeploy(config, options)
+
         assertEquals(listOf(""), selected, "Should return defaultFlavor when no flavors configured")
     }
 
@@ -92,10 +101,6 @@ class DeployHandlerMultiFlavorTest {
      */
     @Test
     fun testVariantGroupSelectsGroup() {
-        val workflow = createDeploymentWorkflow(
-            variantGroup = "production"
-        )
-
         val config = createConfigWithGroups(
             groups = mapOf(
                 "production" to FlavorGroup(
@@ -108,8 +113,10 @@ class DeployHandlerMultiFlavorTest {
                 )
             )
         )
+        val options = FlavorOptions(group = "production")
 
-        val selected = workflow.selectFlavorsToDeploy(config)
+        val selected = workflow.selectFlavorsToDeploy(config, options)
+
         assertEquals(
             listOf("free", "paid", "premium", "enterprise"),
             selected,
@@ -128,10 +135,6 @@ class DeployHandlerMultiFlavorTest {
      */
     @Test
     fun testVariantGroupNotFound() {
-        val workflow = createDeploymentWorkflow(
-            variantGroup = "unknown"
-        )
-
         val config = createConfigWithGroups(
             groups = mapOf(
                 "production" to FlavorGroup(
@@ -140,8 +143,10 @@ class DeployHandlerMultiFlavorTest {
                 )
             )
         )
+        val options = FlavorOptions(group = "unknown")
 
-        val selected = workflow.selectFlavorsToDeploy(config)
+        val selected = workflow.selectFlavorsToDeploy(config, options)
+
         assertEquals(emptyList(), selected, "Should return empty when group not found")
     }
 
@@ -150,61 +155,56 @@ class DeployHandlerMultiFlavorTest {
      *
      * Scenario:
      * - mobilectl deploy --variants free,premium
-     * - CLI overrides everything
+     * - Config has: flavors: [free, paid, premium]
      *
      * Expected: Deploy only free and premium
      */
     @Test
     fun testVariantsSelectsSpecific() {
-        val workflow = createDeploymentWorkflow(
-            variants = "free,premium"
-        )
-
         val config = createConfigWithFlavors(
-            flavors = listOf("free", "paid", "premium", "enterprise")
+            flavors = listOf("free", "paid", "premium")
         )
+        val options = FlavorOptions(flavors = "free,premium")
 
-        val selected = workflow.selectFlavorsToDeploy(config)
+        val selected = workflow.selectFlavorsToDeploy(config, options)
+
         assertEquals(
             listOf("free", "premium"),
             selected,
-            "Should select specific flavors from CLI"
+            "Should select only specified flavors"
         )
     }
 
     /**
-     * Test: --exclude filters out specific flavors
+     * Test: --exclude filters out flavors
      *
      * Scenario:
      * - mobilectl deploy --all-variants --exclude qa,staging
-     * - Config has: [free, paid, premium, qa, staging]
+     * - Config has: flavors: [free, paid, premium, qa, staging]
      *
-     * Expected: Deploy all except qa and staging
+     * Expected: Deploy free, paid, premium (excluding qa, staging)
      */
     @Test
     fun testExcludeFiltersOut() {
-        val workflow = createDeploymentWorkflow(
-            allVariants = true,
-            exclude = "qa,staging"
-        )
-
         val config = createConfigWithFlavors(
             flavors = listOf("free", "paid", "premium", "qa", "staging")
         )
+        val options = FlavorOptions(
+            allFlavors = true,
+            exclude = "qa,staging"
+        )
 
-        val allSelected = workflow.selectFlavorsToDeploy(config)
-        val excludeSet = "qa,staging".split(",").map { it.trim() }.toSet()
-        val filtered = allSelected.filter { it !in excludeSet }
+        val selected = workflow.selectFlavorsToDeploy(config, options)
 
         assertEquals(
             listOf("free", "paid", "premium"),
-            filtered,
+            selected,
             "Should exclude qa and staging"
         )
     }
 
     // ═════════════════════════════════════════════════════════════
-    // PRIORITY ORDER (CLI > Config > Default)
+    // PRECEDENCE RULES
     // ═════════════════════════════════════════════════════════════
 
     /**
@@ -212,24 +212,24 @@ class DeployHandlerMultiFlavorTest {
      *
      * Scenario:
      * - mobilectl deploy --all-variants
-     * - Config has: defaultGroup: "production"
+     * - Config has: defaultGroup: production (only 4 flavors)
      *
-     * Expected: Deploy ALL (not just production)
+     * Expected: Deploy ALL 6 flavors (CLI wins)
      */
     @Test
     fun testCLIAllVariantsWinsOverConfig() {
-        val workflow = createDeploymentWorkflow(allVariants = true)
+        val config = createConfigWithDefaults(defaultGroup = "production")
+        val options = FlavorOptions(allFlavors = true)
 
-        val config = createConfigWithDefaults(
-            defaultGroup = "production"
-        )
+        val selected = workflow.selectFlavorsToDeploy(config, options)
 
-        val selected = workflow.selectFlavorsToDeploy(config)
-        assertEquals(
-            listOf("free", "paid", "premium", "enterprise", "qa", "staging"),
-            selected,
-            "CLI --all-variants should override config defaultGroup"
-        )
+        assertEquals(6, selected.size, "Should deploy all 6 flavors, not just production group")
+        assertTrue(selected.contains("free"))
+        assertTrue(selected.contains("paid"))
+        assertTrue(selected.contains("premium"))
+        assertTrue(selected.contains("enterprise"))
+        assertTrue(selected.contains("qa"))
+        assertTrue(selected.contains("staging"))
     }
 
     /**
@@ -237,54 +237,44 @@ class DeployHandlerMultiFlavorTest {
      *
      * Scenario:
      * - mobilectl deploy --variants free,paid
-     * - Config has: defaultGroup: "production"
+     * - Config has: defaultGroup: production
      *
      * Expected: Deploy only free and paid (CLI wins)
      */
     @Test
     fun testCLIVariantsWinsOverConfig() {
-        val workflow = createDeploymentWorkflow(
-            variants = "free,paid"
-        )
+        val config = createConfigWithDefaults(defaultGroup = "production")
+        val options = FlavorOptions(flavors = "free,paid")
 
-        val config = createConfigWithDefaults(
-            defaultGroup = "production"  // Says production
-        )
+        val selected = workflow.selectFlavorsToDeploy(config, options)
 
-        val selected = workflow.selectFlavorsToDeploy(config)
         assertEquals(
             listOf("free", "paid"),
             selected,
-            "CLI --variants should override config"
+            "CLI variants should win over config defaultGroup"
         )
     }
 
     /**
-     * Test: Config defaultGroup used when no CLI flags
+     * Test: Config defaultGroup used when no CLI options
      *
      * Scenario:
-     * - mobilectl deploy
-     * - Config has: defaultGroup: "testing"
+     * - mobilectl deploy (no CLI flavor options)
+     * - Config has: defaultGroup: production
      *
-     * Expected: Deploy testing group
+     * Expected: Deploy production group (4 flavors)
      */
     @Test
     fun testConfigDefaultGroupUsedWhenNoCLI() {
-        val workflow = createDeploymentWorkflow(
-            allVariants = false,
-            variantGroup = null,
-            variants = null
-        )
+        val config = createConfigWithDefaults(defaultGroup = "production")
+        val options = FlavorOptions()  // No CLI options
 
-        val config = createConfigWithDefaults(
-            defaultGroup = "testing"
-        )
+        val selected = workflow.selectFlavorsToDeploy(config, options)
 
-        val selected = workflow.selectFlavorsToDeploy(config)
         assertEquals(
-            listOf("qa", "staging"),
+            listOf("free", "paid", "premium", "enterprise"),
             selected,
-            "Should use config defaultGroup when no CLI flags"
+            "Should use config defaultGroup when no CLI options"
         )
     }
 
@@ -292,98 +282,74 @@ class DeployHandlerMultiFlavorTest {
      * Test: Default flavor fallback
      *
      * Scenario:
-     * - mobilectl deploy
-     * - No --all-variants
-     * - No config defaultGroup
+     * - mobilectl deploy (no CLI options, no config defaultGroup)
+     * - Config has: defaultFlavor: free
      *
-     * Expected: Deploy just defaultFlavor
+     * Expected: Deploy only defaultFlavor
      */
     @Test
     fun testDefaultFlavorFallback() {
-        val workflow = createDeploymentWorkflow(
-            allVariants = false,
-            variantGroup = null,
-            variants = null
-        )
+        val config = createConfigWithDefaults(defaultGroup = null)
+        val options = FlavorOptions()
 
-        val config = createConfigWithFlavors(
-            flavors = listOf("free", "paid", "premium"),
-            defaultFlavor = "free"
-        )
+        val selected = workflow.selectFlavorsToDeploy(config, options)
 
-        val selected = workflow.selectFlavorsToDeploy(config)
         assertEquals(
             listOf("free"),
             selected,
-            "Should fall back to defaultFlavor"
+            "Should fall back to defaultFlavor when no group or CLI options"
         )
     }
 
     // ═════════════════════════════════════════════════════════════
-    // FLAVOR GROUPS (Named Groups)
+    // FLAVOR GROUPS CONFIGURATION
     // ═════════════════════════════════════════════════════════════
 
     /**
-     * Test: Flavor groups configuration
+     * Test: Flavor groups can group related variants
      *
-     * Config structure:
-     * variantGroups:
-     *   production:
-     *     name: "Production"
-     *     flavors: [free, paid, premium]
-     *   testing:
-     *     name: "QA"
-     *     flavors: [qa, staging]
+     * Scenario:
+     * - Config has:
+     *   variantGroups:
+     *     production: [free, paid, premium, enterprise]
+     *
+     * Expected: Group contains all 4 production flavors
      */
     @Test
     fun testFlavorGroupsConfiguration() {
-        val config = Config(
-            version = VersionConfig(),
-            build = BuildConfig(),
-            deploy = DeployConfig(
-                flavorGroups = mapOf(
-                    "production" to FlavorGroup(
-                        name = "Production",
-                        description = "Public release",
-                        flavors = listOf("free", "paid", "premium")
-                    ),
-                    "testing" to FlavorGroup(
-                        name = "Testing",
-                        description = "QA only",
-                        flavors = listOf("qa", "staging")
-                    )
-                )
-            ),
-            changelog = ChangelogConfig()
-        )
-
-        assertEquals(2, config.deploy.flavorGroups.size)
-        assertEquals("Production", config.deploy.flavorGroups["production"]?.name)
-        assertEquals(
-            listOf("free", "paid", "premium"),
-            config.deploy.flavorGroups["production"]?.flavors
-        )
-    }
-
-    /**
-     * Test: Deploy multiple groups
-     *
-     * Scenario:
-     * - mobilectl deploy --variant-group production
-     * Then:
-     * - mobilectl deploy --variant-group testing
-     *
-     * Expected: Can switch between groups
-     */
-    @Test
-    fun testMultipleGroupsAvailable() {
-        val prodWorkflow = createDeploymentWorkflow(variantGroup = "production")
-        val testWorkflow = createDeploymentWorkflow(variantGroup = "testing")
-
         val config = createConfigWithGroups(
             groups = mapOf(
                 "production" to FlavorGroup(
-                    flavors = listOf("free", "paid")
+                    name = "Production",
+                    flavors = listOf("free", "paid", "premium", "enterprise")
+                )
+            )
+        )
+        val options = FlavorOptions(group = "production")
+
+        val selected = workflow.selectFlavorsToDeploy(config, options)
+
+        assertEquals(4, selected.size)
+        assertEquals(listOf("free", "paid", "premium", "enterprise"), selected)
+    }
+
+    /**
+     * Test: Multiple groups available, each with different flavors
+     *
+     * Scenario:
+     * - Config has:
+     *   variantGroups:
+     *     production: [free, paid, premium, enterprise]
+     *     testing: [qa, staging]
+     *
+     * Expected: Can select either group independently
+     */
+    @Test
+    fun testMultipleGroupsAvailable() {
+        val config = createConfigWithGroups(
+            groups = mapOf(
+                "production" to FlavorGroup(
+                    flavors = listOf("free", "paid", "premium", "enterprise")
                 ),
                 "testing" to FlavorGroup(
                     flavors = listOf("qa", "staging")
@@ -391,80 +357,63 @@ class DeployHandlerMultiFlavorTest {
             )
         )
 
-        val prodSelected = prodWorkflow.selectFlavorsToDeploy(config)
-        val testSelected = testWorkflow.selectFlavorsToDeploy(config)
+        // Select production
+        val productionOptions = FlavorOptions(group = "production")
+        val production = workflow.selectFlavorsToDeploy(config, productionOptions)
+        assertEquals(listOf("free", "paid", "premium", "enterprise"), production)
 
-        assertEquals(listOf("free", "paid"), prodSelected)
-        assertEquals(listOf("qa", "staging"), testSelected)
+        // Select testing
+        val testingOptions = FlavorOptions(group = "testing")
+        val testing = workflow.selectFlavorsToDeploy(config, testingOptions)
+        assertEquals(listOf("qa", "staging"), testing)
     }
 
     // ═════════════════════════════════════════════════════════════
-    // REAL-WORLD SCENARIOS
+    // REAL-WORLD WORKFLOWS
     // ═════════════════════════════════════════════════════════════
 
     /**
-     * Test: Production release (all public flavors)
+     * Test: Production release workflow
      *
      * Scenario:
-     * - mobilectl deploy --variant-group production --bump-version minor -C
-     * - Config has: production = [free, paid, premium, enterprise]
+     * - mobilectl deploy --variant-group production
+     * - Config has production group with 4 flavors
      *
-     * Expected: Full release workflow
+     * Expected: Deploy all production flavors
      */
     @Test
     fun testProductionReleaseWorkflow() {
-        val bumpVersion = "minor"
-        val changelog = true
-        val workflow = createDeploymentWorkflow(
-            variantGroup = "production"
-        )
+        val config = createConfigWithDefaults(defaultGroup = "production")
+        val options = FlavorOptions(group = "production")
 
-        val config = createConfigWithGroups(
-            groups = mapOf(
-                "production" to FlavorGroup(
-                    flavors = listOf("free", "paid", "premium", "enterprise")
-                )
-            ),
-            defaultFlavor = "free"
-        )
+        val selected = workflow.selectFlavorsToDeploy(config, options)
 
-        val selected = workflow.selectFlavorsToDeploy(config)
-        assertEquals(4, selected.size)
-
-        // Verify version bump and changelog would be executed
-        val shouldBumpVersion = config.version?.autoIncrement == true || bumpVersion != null
-        val shouldGenerateChangelog = config.changelog.enabled == true || changelog
-        assertTrue(shouldBumpVersion, "Should execute version bump")
-        assertTrue(shouldGenerateChangelog, "Should generate changelog")
+        assertEquals(4, selected.size, "Production should have 4 flavors")
+        assertTrue(selected.contains("free"))
+        assertTrue(selected.contains("paid"))
+        assertTrue(selected.contains("premium"))
+        assertTrue(selected.contains("enterprise"))
+        assertFalse(selected.contains("qa"), "QA not in production group")
+        assertFalse(selected.contains("staging"), "Staging not in production group")
     }
 
     /**
-     * Test: QA testing (only test flavors)
+     * Test: QA testing workflow
      *
      * Scenario:
-     * - mobilectl deploy --variant-group testing -y
-     * - Config has: testing = [qa, staging]
+     * - mobilectl deploy --variant-group testing
+     * - Config has testing group with qa and staging
      *
-     * Expected: Deploy only QA flavors
+     * Expected: Deploy only qa and staging
      */
     @Test
     fun testQATestingWorkflow() {
-        val bumpVersion: String? = null
-        val workflow = createDeploymentWorkflow(
-            variantGroup = "testing"
-        )
+        val config = createConfigWithDefaults(defaultGroup = "production")
+        val options = FlavorOptions(group = "testing")
 
-        val config = createConfigWithGroups(
-            groups = mapOf(
-                "testing" to FlavorGroup(
-                    flavors = listOf("qa", "staging")
-                )
-            )
-        )
+        val selected = workflow.selectFlavorsToDeploy(config, options)
 
-        val selected = workflow.selectFlavorsToDeploy(config)
         assertEquals(listOf("qa", "staging"), selected)
-        assertEquals(false, bumpVersion != null, "Should not bump version for QA")
     }
 
     /**
@@ -472,54 +421,26 @@ class DeployHandlerMultiFlavorTest {
      *
      * Scenario:
      * - mobilectl deploy --all-variants --exclude qa,staging
-     * - Config has: [free, paid, premium, enterprise, qa, staging]
      *
-     * Expected: Deploy 4 public flavors, skip QA
+     * Expected: Deploy all production flavors
      */
     @Test
     fun testDeployAllExceptQA() {
-        val workflow = createDeploymentWorkflow(
-            allVariants = true,
+        val config = createConfigWithDefaults(defaultGroup = "production")
+        val options = FlavorOptions(
+            allFlavors = true,
             exclude = "qa,staging"
         )
 
-        val config = createConfigWithFlavors(
-            flavors = listOf("free", "paid", "premium", "enterprise", "qa", "staging")
-        )
+        val selected = workflow.selectFlavorsToDeploy(config, options)
 
-        val selected = workflow.selectFlavorsToDeploy(config)
-        val excludeSet = "qa,staging".split(",").map { it.trim() }.toSet()
-        val filtered = selected.filter { it !in excludeSet }
-
-        assertEquals(4, filtered.size)
-        assertFalse(filtered.contains("qa"))
-        assertFalse(filtered.contains("staging"))
+        assertEquals(4, selected.size)
+        assertEquals(listOf("free", "paid", "premium", "enterprise"), selected)
     }
 
     // ═════════════════════════════════════════════════════════════
     // HELPER FUNCTIONS
     // ═════════════════════════════════════════════════════════════
-
-    private fun createDeploymentWorkflow(
-        allVariants: Boolean = false,
-        variantGroup: String? = null,
-        variants: String? = null,
-        exclude: String? = null,
-        verbose: Boolean = false
-    ): DeploymentWorkflow {
-        val workingPath = System.getProperty("user.dir")
-        val detector = createProjectDetector()
-
-        return DeploymentWorkflow(
-            workingPath = workingPath,
-            detector = detector,
-            verbose = verbose,
-            allFlavors = allVariants,
-            group = variantGroup,
-            flavors = variants,
-            exclude = exclude
-        )
-    }
 
     private fun createConfigWithFlavors(
         flavors: List<String> = listOf("free", "paid", "premium"),

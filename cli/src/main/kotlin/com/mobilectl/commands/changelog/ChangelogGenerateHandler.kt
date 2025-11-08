@@ -8,6 +8,7 @@ import com.mobilectl.changelog.createChangelogStateManager
 import com.mobilectl.config.Config
 import com.mobilectl.config.ConfigLoader
 import com.mobilectl.detector.createProjectDetector
+import com.mobilectl.util.PremiumLogger
 import com.mobilectl.util.createFileUtil
 import java.io.File
 import java.io.PrintWriter
@@ -49,10 +50,10 @@ class ChangelogGenerateHandler(
                 changelogConfig
             )
 
-            com.mobilectl.util.PremiumLogger.section("Generating Changelog")
-            com.mobilectl.util.PremiumLogger.detail("Output", changelogConfig.outputFile)
+            PremiumLogger.section("Generating Changelog")
+            PremiumLogger.detail("Output", changelogConfig.outputFile)
             if (fromTag != null) {
-                com.mobilectl.util.PremiumLogger.detail("From Tag", fromTag, dim = true)
+                PremiumLogger.detail("From Tag", fromTag, dim = true)
             }
 
             val result = orchestrator.generate(
@@ -63,18 +64,18 @@ class ChangelogGenerateHandler(
             )
 
             if (!result.success) {
-                com.mobilectl.util.PremiumLogger.error(result.error ?: "Generation failed")
-                com.mobilectl.util.PremiumLogger.sectionEnd()
+                PremiumLogger.error(result.error ?: "Generation failed")
+                PremiumLogger.sectionEnd()
                 return
             }
 
-            com.mobilectl.util.PremiumLogger.success("Generated successfully")
-            com.mobilectl.util.PremiumLogger.detail("Commits Found", "${result.commitCount}", dim = true)
-            com.mobilectl.util.PremiumLogger.detail("Saved To", result.changelogPath ?: changelogConfig.outputFile, dim = true)
-            com.mobilectl.util.PremiumLogger.sectionEnd()
+            PremiumLogger.success("Generated successfully")
+            PremiumLogger.detail("Commits Found", "${result.commitCount}", dim = true)
+            PremiumLogger.detail("Saved To", result.changelogPath ?: changelogConfig.outputFile, dim = true)
+            PremiumLogger.sectionEnd()
 
         } catch (e: Exception) {
-            com.mobilectl.util.PremiumLogger.simpleError("Error: ${e.message}")
+            PremiumLogger.simpleError("Error: ${e.message}")
         }
     }
 }

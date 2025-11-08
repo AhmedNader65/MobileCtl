@@ -2,6 +2,7 @@ package com.mobilectl.commands.deploy
 
 import com.mobilectl.model.deploy.DeployResult
 import com.mobilectl.util.ArtifactDetector
+import com.mobilectl.util.PremiumLogger
 import java.io.File
 import java.io.PrintWriter
 import java.nio.charset.StandardCharsets
@@ -52,7 +53,7 @@ private fun printSuccessfulResult(result: DeployResult, verbose : Boolean) {
         items["Duration"] = "${String.format("%.2f", seconds)}s"
     }
 
-    com.mobilectl.util.PremiumLogger.box("Deployment Successful", items, success = true)
+    PremiumLogger.box("Deployment Successful", items, success = true)
 }
 
 private fun printFailedResult(result: DeployResult, verbose: Boolean) {
@@ -67,7 +68,7 @@ private fun printFailedResult(result: DeployResult, verbose: Boolean) {
         items["Details"] = result.error!!.message ?: "Unknown error"
     }
 
-    com.mobilectl.util.PremiumLogger.box("Deployment Failed", items, success = false)
+    PremiumLogger.box("Deployment Failed", items, success = false)
 }
 
 private fun printOverallStatus(
@@ -77,21 +78,21 @@ private fun printOverallStatus(
     val total = successful.size + failed.size
 
     if (failed.isEmpty()) {
-        com.mobilectl.util.PremiumLogger.simpleSuccess("All $total deployment(s) completed successfully!")
+        PremiumLogger.simpleSuccess("All $total deployment(s) completed successfully!")
 
         val totalDuration = successful.sumOf { it.duration }
         if (totalDuration > 0) {
             val seconds = totalDuration / 1000.0
-            com.mobilectl.util.PremiumLogger.info("Total time: ${String.format("%.2f", seconds)}s")
+            PremiumLogger.info("Total time: ${String.format("%.2f", seconds)}s")
         }
         println()
     } else {
-        com.mobilectl.util.PremiumLogger.simpleWarning("${successful.size}/$total successful, ${failed.size} failed")
+        PremiumLogger.simpleWarning("${successful.size}/$total successful, ${failed.size} failed")
 
         if (successful.isNotEmpty()) {
-            com.mobilectl.util.PremiumLogger.info("Successful: ${successful.map { it.destination }.joinToString(", ")}")
+            PremiumLogger.info("Successful: ${successful.map { it.destination }.joinToString(", ")}")
         }
-        com.mobilectl.util.PremiumLogger.info("Failed: ${failed.map { it.destination }.joinToString(", ")}")
+        PremiumLogger.info("Failed: ${failed.map { it.destination }.joinToString(", ")}")
         println()
     }
 }
@@ -152,9 +153,9 @@ private fun getRecommendations(
 
         message.contains("artifact", true) || message.contains("apk", true) -> {
             recommendations["Build Artifact"] = listOf(
-                "Build your app: ./gradlew assembleRelease",
+                "Build your app: ./gradlew bundleRelease",
                 "Check artifact path in mobileops.yaml",
-                "Or rebuild: ./gradlew clean assembleRelease",
+                "Or rebuild: ./gradlew clean bundleRelease",
                 "Verify APK exists: ${ArtifactDetector.findAndroidApk(File(workingPath))?.absolutePath ?: "Not found"}"
             )
         }

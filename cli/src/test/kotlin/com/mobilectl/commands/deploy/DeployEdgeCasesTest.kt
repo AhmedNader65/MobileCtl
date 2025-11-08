@@ -63,16 +63,10 @@ class DeployEdgeCasesTest {
 
     @Test
     fun testFlavorSelection_EmptyFlavorString() {
-        val workflowWithEmptyFlavor = DeploymentWorkflow(
-            workingPath = workingPath,
-            detector = createProjectDetector(),
-            verbose = false,
-            flavors = ""
-        )
-
         val config = createConfigWithFlavors(listOf("free", "paid"))
+        val options = FlavorOptions(flavors = "")
 
-        val result = workflowWithEmptyFlavor.selectFlavorsToDeploy(config)
+        val result = workflow.selectFlavorsToDeploy(config, options)
 
         // Empty string splits to empty list
         assertNotNull(result)
@@ -80,16 +74,10 @@ class DeployEdgeCasesTest {
 
     @Test
     fun testFlavorSelection_WhitespaceOnlyFlavor() {
-        val workflowWithSpaces = DeploymentWorkflow(
-            workingPath = workingPath,
-            detector = createProjectDetector(),
-            verbose = false,
-            flavors = "   "
-        )
-
         val config = createConfigWithFlavors(listOf("free", "paid"))
+        val options = FlavorOptions(flavors = "   ")
 
-        val result = workflowWithSpaces.selectFlavorsToDeploy(config)
+        val result = workflow.selectFlavorsToDeploy(config, options)
 
         // Whitespace should be handled gracefully
         assertNotNull(result)
@@ -97,16 +85,10 @@ class DeployEdgeCasesTest {
 
     @Test
     fun testFlavorSelection_CommasOnly() {
-        val workflowWithCommas = DeploymentWorkflow(
-            workingPath = workingPath,
-            detector = createProjectDetector(),
-            verbose = false,
-            flavors = ",,,"
-        )
-
         val config = createConfigWithFlavors(listOf("free", "paid"))
+        val options = FlavorOptions(flavors = ",,,")
 
-        val result = workflowWithCommas.selectFlavorsToDeploy(config)
+        val result = workflow.selectFlavorsToDeploy(config, options)
 
         // Should filter out empty elements
         assertNotNull(result)
@@ -165,8 +147,9 @@ class DeployEdgeCasesTest {
     @Test
     fun testFlavorSelection_SingleFlavor() {
         val config = createConfigWithFlavors(listOf("only-one"))
+        val options = FlavorOptions()
 
-        val result = workflow.selectFlavorsToDeploy(config)
+        val result = workflow.selectFlavorsToDeploy(config, options)
 
         assertEquals(listOf("only-one"), result)
     }
@@ -175,15 +158,9 @@ class DeployEdgeCasesTest {
     fun testFlavorSelection_ManyFlavors() {
         val manyFlavors = (1..100).map { "flavor$it" }
         val config = createConfigWithFlavors(manyFlavors)
+        val options = FlavorOptions(allFlavors = true)
 
-        val workflowAllFlavors = DeploymentWorkflow(
-            workingPath = workingPath,
-            detector = createProjectDetector(),
-            verbose = false,
-            allFlavors = true
-        )
-
-        val result = workflowAllFlavors.selectFlavorsToDeploy(config)
+        val result = workflow.selectFlavorsToDeploy(config, options)
 
         assertEquals(100, result.size)
     }
@@ -192,8 +169,9 @@ class DeployEdgeCasesTest {
     fun testFlavorSelection_VeryLongFlavorName() {
         val longName = "a".repeat(1000)
         val config = createConfigWithFlavors(listOf(longName))
+        val options = FlavorOptions()
 
-        val result = workflow.selectFlavorsToDeploy(config)
+        val result = workflow.selectFlavorsToDeploy(config, options)
 
         assertEquals(listOf(longName), result)
     }
@@ -202,15 +180,9 @@ class DeployEdgeCasesTest {
     fun testFlavorSelection_SpecialCharactersInName() {
         val specialNames = listOf("free-trial", "paid_premium", "qa.test", "beta@1.0")
         val config = createConfigWithFlavors(specialNames)
+        val options = FlavorOptions(allFlavors = true)
 
-        val workflowAllFlavors = DeploymentWorkflow(
-            workingPath = workingPath,
-            detector = createProjectDetector(),
-            verbose = false,
-            allFlavors = true
-        )
-
-        val result = workflowAllFlavors.selectFlavorsToDeploy(config)
+        val result = workflow.selectFlavorsToDeploy(config, options)
 
         assertEquals(4, result.size)
     }
@@ -221,13 +193,6 @@ class DeployEdgeCasesTest {
 
     @Test
     fun testFlavorSelection_NonExistentGroup() {
-        val workflow = DeploymentWorkflow(
-            workingPath = workingPath,
-            detector = createProjectDetector(),
-            verbose = false,
-            group = "nonexistent-group"
-        )
-
         val config = Config(
             version = VersionConfig(),
             build = BuildConfig(),
@@ -238,21 +203,15 @@ class DeployEdgeCasesTest {
             ),
             changelog = ChangelogConfig()
         )
+        val options = FlavorOptions(group = "nonexistent-group")
 
-        val result = workflow.selectFlavorsToDeploy(config)
+        val result = workflow.selectFlavorsToDeploy(config, options)
 
         assertEquals(emptyList(), result)
     }
 
     @Test
     fun testFlavorSelection_EmptyGroup() {
-        val workflow = DeploymentWorkflow(
-            workingPath = workingPath,
-            detector = createProjectDetector(),
-            verbose = false,
-            group = "empty-group"
-        )
-
         val config = Config(
             version = VersionConfig(),
             build = BuildConfig(),
@@ -263,25 +222,22 @@ class DeployEdgeCasesTest {
             ),
             changelog = ChangelogConfig()
         )
+        val options = FlavorOptions(group = "empty-group")
 
-        val result = workflow.selectFlavorsToDeploy(config)
+        val result = workflow.selectFlavorsToDeploy(config, options)
 
         assertEquals(emptyList(), result)
     }
 
     @Test
     fun testFlavorExclusion_ExcludeAll() {
-        val workflowExcludeAll = DeploymentWorkflow(
-            workingPath = workingPath,
-            detector = createProjectDetector(),
-            verbose = false,
+        val config = createConfigWithFlavors(listOf("free", "paid", "premium"))
+        val options = FlavorOptions(
             allFlavors = true,
             exclude = "free,paid,premium"
         )
 
-        val config = createConfigWithFlavors(listOf("free", "paid", "premium"))
-
-        val selected = workflowExcludeAll.selectFlavorsToDeploy(config)
+        val selected = workflow.selectFlavorsToDeploy(config, options)
         val excludeSet = "free,paid,premium".split(",").map { it.trim() }.toSet()
         val filtered = selected.filter { it !in excludeSet }
 
@@ -290,17 +246,13 @@ class DeployEdgeCasesTest {
 
     @Test
     fun testFlavorExclusion_ExcludeNonExistent() {
-        val workflowExcludeNonExistent = DeploymentWorkflow(
-            workingPath = workingPath,
-            detector = createProjectDetector(),
-            verbose = false,
+        val config = createConfigWithFlavors(listOf("free", "paid"))
+        val options = FlavorOptions(
             allFlavors = true,
             exclude = "nonexistent1,nonexistent2"
         )
 
-        val config = createConfigWithFlavors(listOf("free", "paid"))
-
-        val selected = workflowExcludeNonExistent.selectFlavorsToDeploy(config)
+        val selected = workflow.selectFlavorsToDeploy(config, options)
         val excludeSet = "nonexistent1,nonexistent2".split(",").map { it.trim() }.toSet()
         val filtered = selected.filter { it !in excludeSet }
 
@@ -375,16 +327,10 @@ class DeployEdgeCasesTest {
 
     @Test
     fun testFlavorParsing_TrailingComma() {
-        val workflowTrailing = DeploymentWorkflow(
-            workingPath = workingPath,
-            detector = createProjectDetector(),
-            verbose = false,
-            flavors = "free,paid,"
-        )
-
         val config = createConfigWithFlavors(listOf("free", "paid"))
+        val options = FlavorOptions(flavors = "free,paid,")
 
-        val result = workflowTrailing.selectFlavorsToDeploy(config)
+        val result = workflow.selectFlavorsToDeploy(config, options)
 
         // Should handle trailing comma gracefully
         assertTrue(result.contains("free"))
@@ -393,16 +339,10 @@ class DeployEdgeCasesTest {
 
     @Test
     fun testFlavorParsing_LeadingComma() {
-        val workflowLeading = DeploymentWorkflow(
-            workingPath = workingPath,
-            detector = createProjectDetector(),
-            verbose = false,
-            flavors = ",free,paid"
-        )
-
         val config = createConfigWithFlavors(listOf("free", "paid"))
+        val options = FlavorOptions(flavors = ",free,paid")
 
-        val result = workflowLeading.selectFlavorsToDeploy(config)
+        val result = workflow.selectFlavorsToDeploy(config, options)
 
         assertTrue(result.contains("free"))
         assertTrue(result.contains("paid"))
@@ -410,16 +350,10 @@ class DeployEdgeCasesTest {
 
     @Test
     fun testFlavorParsing_MixedWhitespace() {
-        val workflowWhitespace = DeploymentWorkflow(
-            workingPath = workingPath,
-            detector = createProjectDetector(),
-            verbose = false,
-            flavors = " free , paid  ,  premium"
-        )
-
         val config = createConfigWithFlavors(listOf("free", "paid", "premium"))
+        val options = FlavorOptions(flavors = " free , paid  ,  premium")
 
-        val result = workflowWhitespace.selectFlavorsToDeploy(config)
+        val result = workflow.selectFlavorsToDeploy(config, options)
 
         assertEquals(3, result.size)
         assertTrue(result.contains("free"))

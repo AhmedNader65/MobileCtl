@@ -2,6 +2,7 @@ package com.mobilectl.commands.version
 
 import com.mobilectl.config.ConfigLoader
 import com.mobilectl.detector.createProjectDetector
+import com.mobilectl.util.PremiumLogger
 import com.mobilectl.util.createFileUtil
 import com.mobilectl.version.*
 import java.io.File
@@ -41,17 +42,28 @@ class VersionBumpHandler(
 
             val newVersion = currentVersion.bump(level)
 
-            com.mobilectl.util.PremiumLogger.section("Version Bump ($level)")
-            com.mobilectl.util.PremiumLogger.detail("From", currentVersion.toString())
-            com.mobilectl.util.PremiumLogger.detail("To", newVersion.toString())
+            PremiumLogger.section("Version Bump ($level)")
+            PremiumLogger.detail("Version Name", "$currentVersion → $newVersion")
+
+            // Detect version code before bump
+            val fileUpdater = createFileUpdater()
+            val versionCodeBefore = if (fileUpdater is com.mobilectl.version.JvmFileUpdater) {
+                fileUpdater.extractVersionCode("app/build.gradle.kts")
+                    ?: fileUpdater.extractVersionCode("build.gradle.kts")
+            } else null
+
+            if (versionCodeBefore != null) {
+                val versionCodeAfter = versionCodeBefore + 1
+                PremiumLogger.detail("Version Code", "$versionCodeBefore → $versionCodeAfter")
+            }
 
             if (configExists && detectedVersion != null && configVersion != null &&
                 detectedVersion.toString() != configVersion.toString()
             ) {
-                com.mobilectl.util.PremiumLogger.warning("Version mismatch detected")
-                com.mobilectl.util.PremiumLogger.detail("App Files", detectedVersion.toString(), dim = true)
-                com.mobilectl.util.PremiumLogger.detail("Config", configVersion.toString(), dim = true)
-                com.mobilectl.util.PremiumLogger.detail("Using", "App version ($detectedVersion)", dim = true)
+                PremiumLogger.warning("Version mismatch detected")
+                PremiumLogger.detail("App Files", detectedVersion.toString(), dim = true)
+                PremiumLogger.detail("Config", configVersion.toString(), dim = true)
+                PremiumLogger.detail("Using", "App version ($detectedVersion)", dim = true)
             }
 
             if (verbose) {
@@ -67,7 +79,6 @@ class VersionBumpHandler(
 
             // Use orchestrator for actual bump
             val backup = createVersionBackup()
-            val fileUpdater = createFileUpdater()
             val orchestrator = VersionOrchestrator(backup, fileUpdater)
 
             val filesToUpdate = config?.version?.filesToUpdate.orEmpty() + listOf(
@@ -90,22 +101,45 @@ class VersionBumpHandler(
                 return
             }
 
+            // Display updated files with version code info where applicable
             result.filesUpdated.forEach { file ->
-                com.mobilectl.util.PremiumLogger.success("Updated: $file")
+                if (file.contains("build.gradle")) {
+                    val updatedVersionCode = if (fileUpdater is com.mobilectl.version.JvmFileUpdater) {
+                        fileUpdater.extractVersionCode(file)
+                    } else null
+
+                    if (updatedVersionCode != null) {
+                        PremiumLogger.success("Updated: $file (versionCode: $updatedVersionCode)")
+                    } else {
+                        PremiumLogger.success("Updated: $file")
+                    }
+                } else {
+                    PremiumLogger.success("Updated: $file")
+                }
             }
 
             result.backupResult?.let { backup ->
                 if (backup.success) {
-                    com.mobilectl.util.PremiumLogger.detail("Backup", File(backup.backupPath!!).name, dim = true)
+                    PremiumLogger.detail("Backup", File(backup.backupPath!!).name, dim = true)
                     if (backup.gitTagCreated) {
-                        com.mobilectl.util.PremiumLogger.detail("Git Tag", "v$currentVersion", dim = true)
+                        PremiumLogger.detail("Git Tag", "v$currentVersion", dim = true)
                     }
                 }
             }
 
-            com.mobilectl.util.PremiumLogger.sectionEnd()
+            PremiumLogger.sectionEnd()
 
-            com.mobilectl.util.PremiumLogger.simpleSuccess("Version bumped: $currentVersion → $newVersion")
+            // Final summary with version code if available
+            val finalVersionCode = if (fileUpdater is com.mobilectl.version.JvmFileUpdater) {
+                fileUpdater.extractVersionCode("app/build.gradle.kts")
+                    ?: fileUpdater.extractVersionCode("build.gradle.kts")
+            } else null
+
+            if (finalVersionCode != null) {
+                PremiumLogger.simpleSuccess("Version bumped: $currentVersion → $newVersion (code: $finalVersionCode)")
+            } else {
+                PremiumLogger.simpleSuccess("Version bumped: $currentVersion → $newVersion")
+            }
             out.println()
         } catch (e: Exception) {
             out.println("❌ Error: ${e.message}")

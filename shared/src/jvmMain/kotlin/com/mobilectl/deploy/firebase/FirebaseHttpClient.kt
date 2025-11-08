@@ -90,7 +90,7 @@ class FirebaseHttpClient(
             try {
                 val releaseId = uploadApk(file, releaseNotes, testGroups)
 
-                PremiumLogger.success("Release created: $releaseId")
+                PremiumLogger.success("Release created with id: $releaseId")
 
                 FirebaseUploadResponse(
                     success = true,
@@ -100,11 +100,10 @@ class FirebaseHttpClient(
                 )
 
             } catch (e: Exception) {
-                e.printStackTrace()
                 FirebaseUploadResponse(
                     success = false,
                     buildId = null,
-                    message = "Upload failed: ${e.message}",
+                    message = e.message ?: "Upload failed",
                     error = e
                 )
             }
@@ -246,6 +245,12 @@ class FirebaseHttpClient(
 
                 // Check if operation is done
                 if (responseBody.contains("\"done\":true") || responseBody.contains("\"done\": true")) {
+                    // Check if there's an error in the response first
+                    if (responseBody.contains("\"error\"")) {
+                        val errorMessage = extractErrorMessage(responseBody)
+                        throw Exception(errorMessage)
+                    }
+
                     // Extract release name from the "release" object in the response
                     // Response structure: { "name": "operations/...", "done": true, "response": { "@type": "...", "result": { "release": { "name": "projects/.../releases/..." } } } }
                     // OR: { "name": "operations/...", "done": true, "response": { "@type": "...", "name": "projects/.../releases/..." } }
@@ -266,9 +271,8 @@ class FirebaseHttpClient(
                         return@withContext releaseName
                     }
 
-                    // Log the actual response for debugging
-                    PremiumLogger.warning("Could not extract release name. Response: ${responseBody.take(500)}")
-                    throw Exception("Release name not found in completed operation. Check logs for response details.")
+                    // If we get here, the operation completed but we couldn't find the release name
+                    throw Exception("Release name not found in completed operation.")
                 }
             }
 
@@ -277,6 +281,20 @@ class FirebaseHttpClient(
         }
 
         throw Exception("Operation timed out after 120 seconds")
+    }
+
+    /**
+     * Extract error message from Firebase operation response
+     */
+    private fun extractErrorMessage(responseBody: String): String {
+        // Try to extract error.message from response
+        val messageMatch = Regex("\"error\"\\s*:\\s*\\{[^}]*\"message\"\\s*:\\s*\"([^\"]+)\"").find(responseBody)
+        if (messageMatch != null) {
+            return messageMatch.groupValues[1].trim()
+        }
+
+        // Fallback to generic message
+        return "Operation completed with error. Check Firebase Console for details."
     }
 
     /**

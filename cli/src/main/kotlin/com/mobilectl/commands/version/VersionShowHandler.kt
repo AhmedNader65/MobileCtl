@@ -2,6 +2,7 @@ package com.mobilectl.commands.version
 
 import com.mobilectl.config.ConfigLoader
 import com.mobilectl.detector.createProjectDetector
+import com.mobilectl.util.PremiumLogger
 import com.mobilectl.util.createFileUtil
 import com.mobilectl.version.SemanticVersion
 import com.mobilectl.version.createVersionDetector
@@ -51,7 +52,7 @@ class VersionShowHandler(
                 items["Files to Update"] = "mobileops.yaml, build.gradle.kts, package.json"
             }
 
-            com.mobilectl.util.PremiumLogger.box("Version Information", items, success = true)
+            PremiumLogger.box("Version Information", items, success = true)
         } catch (e: Exception) {
             out.println("❌ Error: ${e.message}")
         }

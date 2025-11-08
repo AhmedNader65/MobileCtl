@@ -1,5 +1,10 @@
 package com.mobilectl.deploy
 
+import com.mobilectl.deploy.appstore.LocalIosUploader
+import com.mobilectl.deploy.appstore.TestFlightUploader
+import com.mobilectl.deploy.firebase.FirebaseAndroidUploader
+import com.mobilectl.deploy.local.LocalAndroidUploader
+import com.mobilectl.deploy.playstore.PlayAndroidUploader
 import com.mobilectl.model.deploy.DeployResult
 import java.io.File
 
@@ -8,6 +13,7 @@ import java.io.File
  */
 actual fun createDefaultAndroidDestinations(): Map<String, suspend (File, Map<String, String>) -> DeployResult> {
     val firebaseUploader = FirebaseAndroidUploader()
+    val playstoreUploader = PlayAndroidUploader()
     val localUploader = LocalAndroidUploader()
 
     return mapOf(
@@ -15,7 +21,7 @@ actual fun createDefaultAndroidDestinations(): Map<String, suspend (File, Map<St
             firebaseUploader.upload(file, config)
         },
         "play-console" to { file, config ->
-            firebaseUploader.upload(file, config)
+            playstoreUploader.upload(file, config)
         },
         "local" to { file, config ->
             localUploader.upload(file, config)

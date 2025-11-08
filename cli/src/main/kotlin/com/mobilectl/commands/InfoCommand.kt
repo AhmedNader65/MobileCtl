@@ -16,7 +16,7 @@ class InfoCommand : CliktCommand(name = "info") {
             ├─ Android: detected ✅
             │  ├─ Identifier: com.example.myapp
             │  ├─ Version: 1.0.0
-            │  └─ Gradle Task: assembleRelease
+            │  └─ Gradle Task: bundleRelease
             ├─ iOS: not detected ❌
             └─ Config: Using defaults (mobileops.yaml not found)
         """.trimIndent())

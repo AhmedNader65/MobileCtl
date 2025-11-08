@@ -352,10 +352,24 @@ class SetupWizard(
         val playData = if (playEnabled) {
             val serviceAccount = playCredentials ?: promptRequired("Service account JSON path")
 
+            val track = promptChoice(
+                "Default track",
+                listOf("internal", "alpha", "beta", "production"),
+                default = "internal"
+            )
+
+            val status = promptChoice(
+                "Release status",
+                listOf("draft", "completed", "halted", "inProgress"),
+                default = "draft"
+            )
+
             PlayConsoleDestinationData(
                 enabled = true,
                 serviceAccount = serviceAccount,
-                packageName = wizardState.projectInfo.packageName
+                packageName = wizardState.projectInfo.packageName,
+                track = track,
+                status = status
             )
         } else null
 
@@ -673,7 +687,7 @@ class SetupWizard(
                 terminal.println("  • Firebase (${android.firebase!!.testGroups.joinToString(", ")})")
             }
             if (android.playConsole?.enabled == true) {
-                terminal.println("  • Play Console (${android.playConsole!!.track} track)")
+                terminal.println("  • Play Console (${android.playConsole!!.track} track, ${android.playConsole!!.status} status)")
             }
         }
         wizardState.deployConfig.ios?.let { ios ->
@@ -799,7 +813,9 @@ class SetupWizard(
                             PlayConsoleAndroidDestination(
                                 enabled = play.enabled,
                                 serviceAccount = play.serviceAccount,
-                                packageName = play.packageName
+                                packageName = play.packageName,
+                                track = play.track,
+                                status = play.status
                             )
                         } else PlayConsoleAndroidDestination(enabled = false),
                         local = if (android.local != null) {
@@ -1046,7 +1062,8 @@ data class PlayConsoleDestinationData(
     val enabled: Boolean,
     val serviceAccount: String,
     val packageName: String,
-    val track: String = "internal"
+    val track: String = "internal",
+    val status: String = "draft"
 )
 
 data class LocalDestinationData(

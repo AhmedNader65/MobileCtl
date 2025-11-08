@@ -1,6 +1,8 @@
-package com.mobilectl.deploy
+package com.mobilectl.deploy.appstore
 
+import com.mobilectl.deploy.BaseUploadStrategy
 import com.mobilectl.model.deploy.DeployResult
+import kotlinx.coroutines.delay
 import java.io.File
 
 class TestFlightUploader : BaseUploadStrategy() {
@@ -80,7 +82,7 @@ class TestFlightUploader : BaseUploadStrategy() {
     }
 
     private suspend fun simulateUpload(file: File) {
-        kotlinx.coroutines.delay(1000)
+        delay(1000)
     }
 
     private fun generateBuildId(): String {

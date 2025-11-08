@@ -18,7 +18,7 @@ import kotlin.test.*
  * - Platform parsing
  * - Build necessity checks
  * - Strategy validation
- * - Flavor selection (already covered in DeployHandlerMultiFlavorTest)
+ * - Flavor selection
  */
 class DeploymentWorkflowTest {
 
@@ -31,11 +31,7 @@ class DeploymentWorkflowTest {
         workflow = DeploymentWorkflow(
             workingPath = workingPath,
             detector = detector,
-            verbose = false,
-            allFlavors = false,
-            group = null,
-            flavors = null,
-            exclude = null
+            verbose = false
         )
     }
 
@@ -215,7 +211,8 @@ class DeploymentWorkflowTest {
             changelog = ChangelogConfig()
         )
 
-        val result = workflow.selectFlavorsToDeploy(config)
+        val options = FlavorOptions()
+        val result = workflow.selectFlavorsToDeploy(config, options)
 
         assertEquals(listOf("default"), result, "Should fall back to defaultFlavor")
     }
@@ -235,9 +232,73 @@ class DeploymentWorkflowTest {
             changelog = ChangelogConfig()
         )
 
-        val result = workflow.selectFlavorsToDeploy(config)
+        val options = FlavorOptions()
+        val result = workflow.selectFlavorsToDeploy(config, options)
 
         assertEquals(listOf(""), result)
+    }
+
+    @Test
+    fun testSelectFlavorsToDeploy_AllFlavors() {
+        val config = Config(
+            version = VersionConfig(),
+            build = BuildConfig(
+                android = AndroidBuildConfig(
+                    enabled = true,
+                    defaultFlavor = "dev",
+                    flavors = listOf("dev", "staging", "production")
+                )
+            ),
+            deploy = DeployConfig(),
+            changelog = ChangelogConfig()
+        )
+
+        val options = FlavorOptions(allFlavors = true)
+        val result = workflow.selectFlavorsToDeploy(config, options)
+
+        assertEquals(listOf("dev", "staging", "production"), result)
+    }
+
+    @Test
+    fun testSelectFlavorsToDeploy_SpecificFlavors() {
+        val config = Config(
+            version = VersionConfig(),
+            build = BuildConfig(
+                android = AndroidBuildConfig(
+                    enabled = true,
+                    defaultFlavor = "dev",
+                    flavors = listOf("dev", "staging", "production")
+                )
+            ),
+            deploy = DeployConfig(),
+            changelog = ChangelogConfig()
+        )
+
+        val options = FlavorOptions(flavors = "dev,production")
+        val result = workflow.selectFlavorsToDeploy(config, options)
+
+        assertEquals(listOf("dev", "production"), result)
+    }
+
+    @Test
+    fun testSelectFlavorsToDeploy_WithExclusion() {
+        val config = Config(
+            version = VersionConfig(),
+            build = BuildConfig(
+                android = AndroidBuildConfig(
+                    enabled = true,
+                    defaultFlavor = "dev",
+                    flavors = listOf("dev", "staging", "production")
+                )
+            ),
+            deploy = DeployConfig(),
+            changelog = ChangelogConfig()
+        )
+
+        val options = FlavorOptions(allFlavors = true, exclude = "staging")
+        val result = workflow.selectFlavorsToDeploy(config, options)
+
+        assertEquals(listOf("dev", "production"), result)
     }
 
     // ═════════════════════════════════════════════════════════════

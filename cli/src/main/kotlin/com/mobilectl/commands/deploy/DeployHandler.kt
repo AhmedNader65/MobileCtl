@@ -1,6 +1,7 @@
 package com.mobilectl.commands.deploy
 
 import com.mobilectl.detector.createProjectDetector
+import com.mobilectl.util.PremiumLogger
 import java.io.File
 import java.io.PrintWriter
 import java.nio.charset.StandardCharsets
@@ -46,7 +47,9 @@ class DeployHandler(
         bumpVersion, changelog, releaseNotes, testGroups, skipBuild
     )
     private val workflow = DeploymentWorkflow(
-        workingPath, detector, verbose, allFlavors, group, flavors, exclude
+        workingPath = workingPath,
+        detector = detector,
+        verbose = verbose
     )
     private val wizard = InteractiveDeploymentWizard(out)
 
@@ -54,7 +57,7 @@ class DeployHandler(
         try {
             // Validate working directory
             if (!File(workingPath).exists()) {
-                com.mobilectl.util.PremiumLogger.simpleError("Directory does not exist: $workingPath")
+                PremiumLogger.simpleError("Directory does not exist: $workingPath")
                 return
             }
 
@@ -87,14 +90,14 @@ class DeployHandler(
             // 6. Ask for confirmation
             if (!confirm && !dryRun && !interactive) {
                 if (!presenter.askForConfirmation()) {
-                    com.mobilectl.util.PremiumLogger.simpleInfo("Deployment cancelled")
+                    PremiumLogger.simpleInfo("Deployment cancelled")
                     return
                 }
             }
 
             // 7. Dry-run mode
             if (dryRun) {
-                com.mobilectl.util.PremiumLogger.simpleInfo("DRY-RUN mode - nothing will be deployed")
+                PremiumLogger.simpleInfo("DRY-RUN mode - nothing will be deployed")
                 presenter.showDryRunDetails(config, targetPlatforms, actualEnvironment)
                 return
             }
@@ -107,13 +110,13 @@ class DeployHandler(
 
                 if (shouldBumpVersion && strategy != null) {
                     if (!workflow.isValidStrategy(strategy)) {
-                        com.mobilectl.util.PremiumLogger.simpleError("Invalid strategy: $strategy")
-                        com.mobilectl.util.PremiumLogger.info("Valid: patch, minor, major, auto, manual")
+                        PremiumLogger.simpleError("Invalid strategy: $strategy")
+                        PremiumLogger.info("Valid: patch, minor, major, auto, manual")
                         return
                     }
 
                     if (strategy == "manual") {
-                        com.mobilectl.util.PremiumLogger.simpleInfo("Skipping version bump (manual mode)")
+                        PremiumLogger.simpleInfo("Skipping version bump (manual mode)")
                     } else {
                         workflow.bumpVersionBeforeDeploy(strategy, config)
                         config = configurationService.loadConfigOrUseDefaults()
@@ -126,10 +129,13 @@ class DeployHandler(
             }
 
             // 9. Handle flavor selection and exclusion
-            val excludeSet = exclude?.split(",")?.map { it.trim() }?.toSet()
-            val flavorsToDeploy = workflow.selectFlavorsToDeploy(config).filter {
-                excludeSet == null || it !in excludeSet
-            }
+            val flavorOptions = FlavorOptions(
+                allFlavors = allFlavors,
+                group = group,
+                flavors = flavors,
+                exclude = exclude
+            )
+            val flavorsToDeploy = workflow.selectFlavorsToDeploy(config, flavorOptions)
 
             val allResultsGlobal = mutableListOf<com.mobilectl.model.deploy.DeployResult>()
 
@@ -151,18 +157,18 @@ class DeployHandler(
                 if (!skipBuild) {
                     val needsBuild = workflow.checkIfBuildNeeded(config, targetPlatforms)
                     if (needsBuild) {
-                        com.mobilectl.util.PremiumLogger.header("Building Artifacts", "🏗️")
+                        PremiumLogger.header("Building Artifacts", "🏗️")
                         val buildResult = workflow.buildArtifacts(config, targetPlatforms)
 
                         if (!buildResult.success) {
-                            com.mobilectl.util.PremiumLogger.simpleError("Build failed!")
+                            PremiumLogger.simpleError("Build failed!")
                             return
                         }
 
                         // Check signing requirements
                         workflow.validateSigningRequirements(config, buildResult)
                     } else {
-                        com.mobilectl.util.PremiumLogger.simpleSuccess(
+                        PremiumLogger.simpleSuccess(
                             "Artifacts up-to-date (no source changes detected)"
                         )
                     }
@@ -171,7 +177,7 @@ class DeployHandler(
                 // 12. Execute deployment
                 presenter.showDeploymentHeader(actualEnvironment, targetPlatforms)
                 allResultsGlobal.addAll(
-                    workflow.executeDeploy(config, targetPlatforms, actualEnvironment)
+                    workflow.executeDeploy(config, targetPlatforms)
                 )
             }
 
@@ -179,7 +185,7 @@ class DeployHandler(
             printDeployResults(allResultsGlobal, verbose, workingPath)
 
         } catch (e: Exception) {
-            com.mobilectl.util.PremiumLogger.simpleError("Error: ${e.message}")
+            PremiumLogger.simpleError("Error: ${e.message}")
             if (verbose) {
                 e.printStackTrace()
             }
@@ -214,7 +220,7 @@ class DeployHandler(
         }
 
         if (destinationMap.isEmpty()) {
-            com.mobilectl.util.PremiumLogger.simpleError("No destinations selected")
+            PremiumLogger.simpleError("No destinations selected")
             return null
         }
 
@@ -234,7 +240,7 @@ class DeployHandler(
         )
 
         if (!confirmed) {
-            com.mobilectl.util.PremiumLogger.simpleInfo("Deployment cancelled")
+            PremiumLogger.simpleInfo("Deployment cancelled")
             return null
         }
 

@@ -1,69 +1,621 @@
 package com.mobilectl.util
 
+import com.mobilectl.util.PremiumLogger
 import java.io.File
+import java.util.zip.ZipFile
 
 /**
- * Analyzes APK files to extract metadata
+ * Analyzes Android artifacts (APK/AAB) to extract metadata
  */
 object ApkAnalyzer {
 
     /**
-     * Extract package ID from APK using aapt/aapt2
+     * Extract package ID from APK/AAB using aapt/aapt2
      */
-    fun getPackageId(apkFile: File): String? {
-        if (!apkFile.exists()) {
+    fun getPackageId(artifactFile: File): String? {
+        if (!artifactFile.exists()) {
+            PremiumLogger.error("File does not exist: ${artifactFile.absolutePath}")
             return null
         }
 
-        // Try aapt2 first (newer)
-        val packageId = tryGetPackageWithAapt2(apkFile)
-            ?: tryGetPackageWithAapt(apkFile)
+        // Validate file type
+        if (!isValidAndroidArtifact(artifactFile)) {
+            PremiumLogger.error("File is not a valid APK or AAB: ${artifactFile.absolutePath}")
+            return null
+        }
+
+        val isAab = artifactFile.extension.lowercase() == "aab"
+
+        // For AAB files, extract manifest from the bundle
+        // For APK files, use aapt2 directly
+        val packageId = if (isAab) {
+            extractPackageFromAab(artifactFile)
+        } else {
+            tryGetPackageWithAapt2(artifactFile)
+                ?: tryGetPackageWithAapt2Badging(artifactFile)
+                ?: tryGetPackageWithAapt(artifactFile)
+        }
         return packageId
     }
 
     /**
-     * Extract version code from APK
+     * Check if file is a valid Android artifact (APK or AAB)
      */
-    fun getVersionCode(apkFile: File): String? {
-        if (!apkFile.exists()) {
-            return null
-        }
-
-        return tryGetVersionCodeWithAapt2(apkFile)
-            ?: tryGetVersionCodeWithAapt(apkFile)
+    private fun isValidAndroidArtifact(file: File): Boolean {
+        val extension = file.extension.lowercase()
+        return extension == "apk" || extension == "aab"
     }
 
     /**
-     * Extract version name from APK
+     * Extract version code from APK/AAB
      */
-    fun getVersionName(apkFile: File): String? {
-        if (!apkFile.exists()) {
+    fun getVersionCode(artifactFile: File): String? {
+        if (!artifactFile.exists()) {
             return null
         }
 
-        return tryGetVersionNameWithAapt2(apkFile)
-            ?: tryGetVersionNameWithAapt(apkFile)
+        if (!isValidAndroidArtifact(artifactFile)) {
+            return null
+        }
+
+        val isAab = artifactFile.extension.lowercase() == "aab"
+
+        return if (isAab) {
+            extractVersionCodeFromAab(artifactFile)
+        } else {
+            tryGetVersionCodeWithAapt2(artifactFile)
+                ?: tryGetVersionCodeWithAapt(artifactFile)
+        }
     }
 
     /**
-     * Get comprehensive APK info
+     * Extract version name from APK/AAB
      */
-    fun getApkInfo(apkFile: File): ApkInfo? {
-        if (!apkFile.exists()) {
+    fun getVersionName(artifactFile: File): String? {
+        if (!artifactFile.exists()) {
             return null
         }
 
-        val packageId = getPackageId(apkFile)
-        val versionCode = getVersionCode(apkFile)
-        val versionName = getVersionName(apkFile)
-        PremiumLogger.info("APK Package ID: $packageId, Version Code: $versionCode, Version Name: $versionName")
+        if (!isValidAndroidArtifact(artifactFile)) {
+            return null
+        }
+
+        val isAab = artifactFile.extension.lowercase() == "aab"
+
+        return if (isAab) {
+            extractVersionNameFromAab(artifactFile)
+        } else {
+            tryGetVersionNameWithAapt2(artifactFile)
+                ?: tryGetVersionNameWithAapt(artifactFile)
+        }
+    }
+
+    /**
+     * Extract package name from AAB file by building a minimal APK and analyzing it
+     */
+    private fun extractPackageFromAab(aabFile: File): String? {
+        return try {
+            ZipFile(aabFile).use { zip ->
+                // First, try to extract the base.apk (some AABs have this)
+                var baseApkEntry = zip.getEntry("base.apk")
+
+                // If not found, look for any APK in the bundle
+                if (baseApkEntry == null) {
+                    baseApkEntry = zip.entries().asSequence()
+                        .firstOrNull { it.name.endsWith(".apk") && it.name.contains("base") }
+                }
+
+                // If we found a base APK, extract and analyze it
+                if (baseApkEntry != null) {
+                    val tempApk = File.createTempFile("base", ".apk")
+                    tempApk.deleteOnExit()
+
+                    zip.getInputStream(baseApkEntry).use { input ->
+                        tempApk.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+
+                    // Use standard APK analysis
+                    val packageName = tryGetPackageWithAapt2(tempApk)
+                        ?: tryGetPackageWithAapt2Badging(tempApk)
+                        ?: tryGetPackageWithAapt(tempApk)
+
+                    tempApk.delete()
+
+                    if (packageName != null) {
+                        return packageName
+                    }
+                }
+
+                // Fallback 1: Try bundletool to extract universal APK
+                val bundletoolPackage = extractPackageUsingBundletool(aabFile)
+                if (bundletoolPackage != null) {
+                    return bundletoolPackage
+                }
+
+                // Fallback 2: Build a minimal APK from AAB contents
+                val packageName = buildMinimalApkAndExtract(zip)
+
+                if (packageName == null) {
+                    PremiumLogger.error("Could not extract package name from AAB")
+                }
+
+                packageName
+            }
+        } catch (e: Exception) {
+            PremiumLogger.error("Error extracting package from AAB: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Extract package name using bundletool
+     * Bundletool is Google's official tool for working with AABs
+     */
+    private fun extractPackageUsingBundletool(aabFile: File): String? {
+        return try {
+            val bundletoolPath = findBundletool() ?: return null
+
+            // Create temporary APKs output file
+            val tempApks = File.createTempFile("universal", ".apks")
+            tempApks.deleteOnExit()
+
+            // Build universal APK using bundletool
+            val buildProcess = ProcessBuilder(
+                "java",
+                "-jar",
+                bundletoolPath,
+                "build-apks",
+                "--bundle=${aabFile.absolutePath}",
+                "--output=${tempApks.absolutePath}",
+                "--mode=universal"
+            ).start()
+
+            buildProcess.waitFor()
+
+            if (buildProcess.exitValue() != 0) {
+                val errorOutput = buildProcess.errorStream.bufferedReader().readText()
+                PremiumLogger.error("Bundletool build-apks failed: $errorOutput")
+                tempApks.delete()
+                return null
+            }
+
+            // Extract the universal APK from the .apks file (which is a ZIP)
+            val universalApk = File.createTempFile("universal", ".apk")
+            universalApk.deleteOnExit()
+
+            ZipFile(tempApks).use { apksZip ->
+                val universalEntry = apksZip.getEntry("universal.apk")
+                if (universalEntry != null) {
+                    apksZip.getInputStream(universalEntry).use { input ->
+                        universalApk.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                } else {
+                    PremiumLogger.error("universal.apk not found in .apks file")
+                    tempApks.delete()
+                    universalApk.delete()
+                    return null
+                }
+            }
+
+            tempApks.delete()
+
+            // Analyze the universal APK
+            val packageName = tryGetPackageWithAapt2(universalApk)
+                ?: tryGetPackageWithAapt2Badging(universalApk)
+                ?: tryGetPackageWithAapt(universalApk)
+
+            universalApk.delete()
+            packageName
+
+        } catch (e: Exception) {
+            PremiumLogger.error("Error using bundletool: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Find bundletool.jar
+     * First checks ANDROID_HOME/bundletool, then common locations
+     */
+    private fun findBundletool(): String? {
+        // Check ANDROID_HOME
+        val androidHome = System.getenv("ANDROID_HOME") ?: System.getenv("ANDROID_SDK_ROOT")
+        if (androidHome != null) {
+            val bundletoolPath = File(androidHome, "bundletool/bundletool.jar")
+            if (bundletoolPath.exists()) {
+                return bundletoolPath.absolutePath
+            }
+        }
+
+        // Check common locations
+        val userHome = System.getProperty("user.home")
+        val commonPaths = listOf(
+            "$userHome/.android/bundletool.jar",
+            "$userHome/bundletool.jar",
+            "/usr/local/bin/bundletool.jar",
+            "C:/Program Files/Android/bundletool/bundletool.jar"
+        )
+
+        for (path in commonPaths) {
+            val file = File(path)
+            if (file.exists()) {
+                return file.absolutePath
+            }
+        }
+
+        // Silently return null - bundletool is optional
+        return null
+    }
+
+    /**
+     * Build a minimal APK from AAB contents and extract package info
+     */
+    private fun buildMinimalApkAndExtract(aabZip: ZipFile): String? {
+        return try {
+            val minimalApk = buildMinimalApkFromAab(aabZip) ?: return null
+
+            // Now analyze this minimal APK
+            val packageName = tryGetPackageWithAapt2(minimalApk)
+                ?: tryGetPackageWithAapt2Badging(minimalApk)
+                ?: tryGetPackageWithAapt(minimalApk)
+
+            minimalApk.delete()
+            packageName
+        } catch (e: Exception) {
+            PremiumLogger.error("Error extracting package from minimal APK: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Extract package name from AndroidManifest.xml using aapt2
+     */
+    private fun extractPackageFromManifest(manifestFile: File): String? {
+        return try {
+            val aapt2Path = findAapt2()
+            if (aapt2Path == null) {
+                PremiumLogger.error("aapt2 not found")
+                return null
+            }
+
+            val process = ProcessBuilder(
+                aapt2Path,
+                "dump",
+                "xmltree",
+                "--file",
+                manifestFile.absolutePath
+            ).start()
+
+            val output = process.inputStream.bufferedReader().readText()
+            val errorOutput = process.errorStream.bufferedReader().readText()
+            process.waitFor()
+
+            if (process.exitValue() == 0) {
+                // Look for package attribute in the manifest tag
+                // Format: A: package="com.example.app" (Raw: "com.example.app")
+                val packageRegex = """A: package="([^"]+)"""".toRegex()
+                val match = packageRegex.find(output)
+                match?.groupValues?.get(1)
+            } else {
+                PremiumLogger.error("aapt2 xmltree failed with exit code ${process.exitValue()}")
+                if (errorOutput.isNotBlank()) {
+                    PremiumLogger.error("aapt2 xmltree error: $errorOutput")
+                }
+                null
+            }
+        } catch (e: Exception) {
+            PremiumLogger.error("Error extracting package from manifest: ${e.message}")
+            e.printStackTrace()
+            null
+        }
+    }
+
+    /**
+     * Extract version code from AAB file
+     */
+    private fun extractVersionCodeFromAab(aabFile: File): String? {
+        return try {
+            ZipFile(aabFile).use { zip ->
+                // Try base APK first
+                var baseApkEntry = zip.getEntry("base.apk")
+                if (baseApkEntry == null) {
+                    baseApkEntry = zip.entries().asSequence()
+                        .firstOrNull { it.name.endsWith(".apk") && it.name.contains("base") }
+                }
+
+                if (baseApkEntry != null) {
+                    val tempApk = File.createTempFile("base", ".apk")
+                    tempApk.deleteOnExit()
+
+                    zip.getInputStream(baseApkEntry).use { input ->
+                        tempApk.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+
+                    val versionCode = tryGetVersionCodeWithAapt2(tempApk)
+                        ?: tryGetVersionCodeWithAapt(tempApk)
+
+                    tempApk.delete()
+
+                    if (versionCode != null) {
+                        return versionCode
+                    }
+                }
+
+                // Fallback 1: Try bundletool
+                val bundletoolVersion = extractVersionUsingBundletool(aabFile, "code")
+                if (bundletoolVersion != null) {
+                    return bundletoolVersion
+                }
+
+                // Fallback 2: Build minimal APK and extract
+                val minimalApk = buildMinimalApkFromAab(zip)
+                if (minimalApk != null) {
+                    val versionCode = tryGetVersionCodeWithAapt2(minimalApk)
+                        ?: tryGetVersionCodeWithAapt(minimalApk)
+                    minimalApk.delete()
+                    return versionCode
+                }
+
+                null
+            }
+        } catch (e: Exception) {
+            PremiumLogger.error("Error extracting version code from AAB: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Extract version name from AAB file
+     */
+    private fun extractVersionNameFromAab(aabFile: File): String? {
+        return try {
+            ZipFile(aabFile).use { zip ->
+                // Try base APK first
+                var baseApkEntry = zip.getEntry("base.apk")
+                if (baseApkEntry == null) {
+                    baseApkEntry = zip.entries().asSequence()
+                        .firstOrNull { it.name.endsWith(".apk") && it.name.contains("base") }
+                }
+
+                if (baseApkEntry != null) {
+                    val tempApk = File.createTempFile("base", ".apk")
+                    tempApk.deleteOnExit()
+
+                    zip.getInputStream(baseApkEntry).use { input ->
+                        tempApk.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+
+                    val versionName = tryGetVersionNameWithAapt2(tempApk)
+                        ?: tryGetVersionNameWithAapt(tempApk)
+
+                    tempApk.delete()
+
+                    if (versionName != null) {
+                        return versionName
+                    }
+                }
+
+                // Fallback 1: Try bundletool
+                val bundletoolVersion = extractVersionUsingBundletool(aabFile, "name")
+                if (bundletoolVersion != null) {
+                    return bundletoolVersion
+                }
+
+                // Fallback 2: Build minimal APK and extract
+                val minimalApk = buildMinimalApkFromAab(zip)
+                if (minimalApk != null) {
+                    val versionName = tryGetVersionNameWithAapt2(minimalApk)
+                        ?: tryGetVersionNameWithAapt(minimalApk)
+                    minimalApk.delete()
+                    return versionName
+                }
+
+                null
+            }
+        } catch (e: Exception) {
+            PremiumLogger.error("Error extracting version name from AAB: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Extract version information using bundletool
+     */
+    private fun extractVersionUsingBundletool(aabFile: File, versionType: String): String? {
+        return try {
+            val bundletoolPath = findBundletool() ?: return null
+
+            val tempApks = File.createTempFile("universal", ".apks")
+            tempApks.deleteOnExit()
+
+            val buildProcess = ProcessBuilder(
+                "java",
+                "-jar",
+                bundletoolPath,
+                "build-apks",
+                "--bundle=${aabFile.absolutePath}",
+                "--output=${tempApks.absolutePath}",
+                "--mode=universal"
+            ).start()
+
+            buildProcess.waitFor()
+
+            if (buildProcess.exitValue() != 0) {
+                tempApks.delete()
+                return null
+            }
+
+            val universalApk = File.createTempFile("universal", ".apk")
+            universalApk.deleteOnExit()
+
+            ZipFile(tempApks).use { apksZip ->
+                val universalEntry = apksZip.getEntry("universal.apk")
+                if (universalEntry != null) {
+                    apksZip.getInputStream(universalEntry).use { input ->
+                        universalApk.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                } else {
+                    tempApks.delete()
+                    universalApk.delete()
+                    return null
+                }
+            }
+
+            tempApks.delete()
+
+            val result = when (versionType) {
+                "code" -> tryGetVersionCodeWithAapt2(universalApk)
+                    ?: tryGetVersionCodeWithAapt(universalApk)
+                "name" -> tryGetVersionNameWithAapt2(universalApk)
+                    ?: tryGetVersionNameWithAapt(universalApk)
+                else -> null
+            }
+
+            universalApk.delete()
+            result
+
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Build a minimal APK from AAB contents (helper method)
+     */
+    private fun buildMinimalApkFromAab(aabZip: ZipFile): File? {
+        return try {
+            // Create a temporary APK file
+            val tempApk = File.createTempFile("minimal", ".apk")
+            tempApk.deleteOnExit()
+
+            // Create a ZIP (APK is just a ZIP)
+            java.util.zip.ZipOutputStream(tempApk.outputStream()).use { apkOut ->
+                // Copy manifest from AAB
+                val manifestEntry = aabZip.getEntry("base/manifest/AndroidManifest.xml")
+                if (manifestEntry != null) {
+                    apkOut.putNextEntry(java.util.zip.ZipEntry("AndroidManifest.xml"))
+                    aabZip.getInputStream(manifestEntry).copyTo(apkOut)
+                    apkOut.closeEntry()
+                } else {
+                    PremiumLogger.error("Manifest not found in AAB")
+                    return null
+                }
+
+                // Note: We intentionally do NOT copy resources.pb as resources.arsc
+                // because they use incompatible formats (protobuf vs binary ARSC).
+                // aapt2 can parse APKs with just a manifest for package name extraction.
+            }
+
+            tempApk
+        } catch (e: Exception) {
+            PremiumLogger.error("Error building minimal APK: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Extract version code from AndroidManifest.xml
+     */
+    private fun extractVersionCodeFromManifest(manifestFile: File): String? {
+        return try {
+            val aapt2Path = findAapt2() ?: return null
+
+            val process = ProcessBuilder(
+                aapt2Path,
+                "dump",
+                "xmltree",
+                "--file",
+                manifestFile.absolutePath
+            ).start()
+
+            val output = process.inputStream.bufferedReader().readText()
+            process.waitFor()
+
+            if (process.exitValue() == 0) {
+                // Look for versionCode attribute
+                // Format: A: android:versionCode(0x0101021b)=(type 0x10)0x1
+                val versionCodeRegex = """android:versionCode[^=]*=\(type 0x10\)0x([0-9a-fA-F]+)""".toRegex()
+                val match = versionCodeRegex.find(output)
+                match?.groupValues?.get(1)?.toInt(16)?.toString()
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Extract version name from AndroidManifest.xml
+     */
+    private fun extractVersionNameFromManifest(manifestFile: File): String? {
+        return try {
+            val aapt2Path = findAapt2() ?: return null
+
+            val process = ProcessBuilder(
+                aapt2Path,
+                "dump",
+                "xmltree",
+                "--file",
+                manifestFile.absolutePath
+            ).start()
+
+            val output = process.inputStream.bufferedReader().readText()
+            process.waitFor()
+
+            if (process.exitValue() == 0) {
+                // Look for versionName attribute
+                // Format: A: android:versionName(0x0101021c)="1.0.0" (Raw: "1.0.0")
+                val versionNameRegex = """android:versionName[^=]*="([^"]+)"""".toRegex()
+                val match = versionNameRegex.find(output)
+                match?.groupValues?.get(1)
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Get comprehensive APK/AAB info
+     */
+    fun getApkInfo(artifactFile: File): ApkInfo? {
+        if (!artifactFile.exists()) {
+            return null
+        }
+
+        if (!isValidAndroidArtifact(artifactFile)) {
+            return null
+        }
+
+        val packageId = getPackageId(artifactFile)
+        val versionCode = getVersionCode(artifactFile)
+        val versionName = getVersionName(artifactFile)
+
+        val fileType = when (artifactFile.extension.lowercase()) {
+            "aab" -> "AAB"
+            "apk" -> "APK"
+            else -> "Android artifact"
+        }
 
         return if (packageId != null) {
             ApkInfo(
                 packageId = packageId,
                 versionCode = versionCode,
                 versionName = versionName,
-                fileSizeBytes = apkFile.length()
+                fileSizeBytes = artifactFile.length(),
+                fileType = fileType
             )
         } else {
             null
@@ -72,7 +624,6 @@ object ApkAnalyzer {
 
     private fun tryGetPackageWithAapt2(apkFile: File): String? {
         return try {
-            val aapt2 = findAapt()
             val process = ProcessBuilder(
                 findAapt2() ?: return null,
                 "dump",
@@ -85,6 +636,34 @@ object ApkAnalyzer {
 
             if (process.exitValue() == 0 && output.isNotBlank()) {
                 output
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Extract package name using aapt2 badging (works for both APK and AAB)
+     */
+    private fun tryGetPackageWithAapt2Badging(artifactFile: File): String? {
+        return try {
+            val process = ProcessBuilder(
+                findAapt2() ?: return null,
+                "dump",
+                "badging",
+                artifactFile.absolutePath
+            ).start()
+
+            val output = process.inputStream.bufferedReader().readText()
+            process.waitFor()
+
+            if (process.exitValue() == 0) {
+                // Parse: package: name='com.example.app' versionCode='1' versionName='1.0'
+                val packageLine = output.lines().firstOrNull { it.startsWith("package:") }
+                val packageMatch = Regex("name='([^']+)'").find(packageLine ?: "")
+                packageMatch?.groupValues?.get(1)
             } else {
                 null
             }
@@ -114,6 +693,7 @@ object ApkAnalyzer {
                 null
             }
         } catch (e: Exception) {
+            PremiumLogger.error("Error executing aapt: ${e.message}")
             null
         }
     }
@@ -237,7 +817,7 @@ object ApkAnalyzer {
             val aapt2 = findAaptInSdk(path, "aapt2")
             if (aapt2 != null) return aapt2
         }
-
+        PremiumLogger.info("aapt2 not found in common SDK paths.")
         // Strategy 4: Try to find in PATH
         return findInPath("aapt2")
     }
@@ -382,13 +962,14 @@ object ApkAnalyzer {
 }
 
 /**
- * APK metadata information
+ * Android artifact (APK/AAB) metadata information
  */
 data class ApkInfo(
     val packageId: String,
     val versionCode: String?,
     val versionName: String?,
-    val fileSizeBytes: Long
+    val fileSizeBytes: Long,
+    val fileType: String = "APK"  // "APK" or "AAB"
 ) {
     val fileSizeMB: Double
         get() = fileSizeBytes / (1024.0 * 1024.0)

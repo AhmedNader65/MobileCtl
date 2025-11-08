@@ -1,5 +1,6 @@
-package com.mobilectl.deploy
+package com.mobilectl.deploy.local
 
+import com.mobilectl.deploy.BaseUploadStrategy
 import com.mobilectl.model.deploy.DeployResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

@@ -1,6 +1,6 @@
 package com.mobilectl.version
 
-import com.mobilectl.util.createLogger
+import com.mobilectl.util.PremiumLogger
 import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -8,7 +8,6 @@ import java.time.format.DateTimeFormatter
 actual fun createVersionBackup(): VersionBackup = JvmVersionBackup()
 
 class JvmVersionBackup : VersionBackup {
-    private val logger = createLogger("VersionBackup")
 
     override fun createBackup(fromVersion: String): BackupResult {
         return try {
@@ -41,7 +40,7 @@ class JvmVersionBackup : VersionBackup {
 
             val gitTagCreated = createGitTag(fromVersion)
 
-            logger.info("✅ Backup created: ${backupDir.absolutePath}")
+            PremiumLogger.info("✅ Backup created: ${backupDir.absolutePath}")
 
             BackupResult(
                 success = true,
@@ -50,7 +49,7 @@ class JvmVersionBackup : VersionBackup {
                 gitTagCreated = gitTagCreated
             )
         } catch (e: Exception) {
-            logger.error("❌ Backup failed: ${e.message}")
+            PremiumLogger.error("❌ Backup failed: ${e.message}")
             BackupResult(success = false, error = e.message)
         }
     }

@@ -1,5 +1,6 @@
 package com.mobilectl.deploy.firebase
 
+import com.mobilectl.util.PremiumLogger
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.SerializationException
@@ -34,6 +35,10 @@ data class AccessTokenResponse(
  * Generates JWT and exchanges for access token
  */
 object ServiceAccountAuth {
+    object Scopes {
+        const val CLOUD_PLATFORM = "https://www.googleapis.com/auth/cloud-platform"
+        const val ANDROID_PUBLISHER = "https://www.googleapis.com/auth/androidpublisher"
+    }
 
     private val jsonParser = Json {
         ignoreUnknownKeys = true
@@ -41,7 +46,10 @@ object ServiceAccountAuth {
     }
     private const val JWT_EXPIRY_SECONDS = 3600L
 
-    suspend fun getAccessTokenFromServiceAccount(serviceAccountFile: File): String {
+    suspend fun getAccessTokenFromServiceAccount(
+        serviceAccountFile: File,
+        scope: String = Scopes.CLOUD_PLATFORM
+    ): String {
         try {
             if (!serviceAccountFile.exists()) {
                 throw Exception("Service account file not found: ${serviceAccountFile.absolutePath}")
@@ -65,13 +73,17 @@ object ServiceAccountAuth {
 
             validateServiceAccountKey(account)
 
-            com.mobilectl.util.PremiumLogger.detail("Service Account", account.client_email)
+            PremiumLogger.detail("Service Account", account.client_email)
 
-            val jwt = createJwt(account)
+            val jwt = createJwt(account, scope)
             val token = exchangeJwtForToken(jwt, account.token_uri)
 
             val expiryText = com.mobilectl.util.TimeFormatter.formatExpiry(token.expires_in)
-            com.mobilectl.util.PremiumLogger.detail("Access Token", "Valid for $expiryText", dim = true)
+            PremiumLogger.detail(
+                "Access Token",
+                "Valid for $expiryText",
+                dim = true
+            )
 
             return token.access_token
 
@@ -112,14 +124,14 @@ object ServiceAccountAuth {
         }
     }
 
-    private fun createJwt(account: ServiceAccountKey): String {
+    private fun createJwt(account: ServiceAccountKey, scope: String): String {
         val now = System.currentTimeMillis() / 1000
         val expiry = now + JWT_EXPIRY_SECONDS
 
         val headerJson = """{"alg":"RS256","typ":"JWT"}"""
         val payloadJson = """{
             "iss":"${account.client_email}",
-            "scope":"https://www.googleapis.com/auth/cloud-platform",
+            "scope":"$scope",
             "aud":"${account.token_uri}",
             "exp":$expiry,
             "iat":$now
@@ -176,8 +188,9 @@ object ServiceAccountAuth {
         return try {
             val client = OkHttpClient()
 
-            val requestBody = "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=$jwt"
-                .toByteArray()
+            val requestBody =
+                "grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=$jwt"
+                    .toByteArray()
 
             val request = Request.Builder()
                 .url(tokenUri)

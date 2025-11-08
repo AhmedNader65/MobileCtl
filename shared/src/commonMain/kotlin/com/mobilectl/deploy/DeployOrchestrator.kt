@@ -2,102 +2,24 @@ package com.mobilectl.deploy
 
 import com.mobilectl.model.deploy.AndroidDeployConfig
 import com.mobilectl.model.deploy.DeployResult
-import com.mobilectl.model.deploy.IosDeployConfig
-import com.mobilectl.model.deploy.FirebaseAndroidDestination
-import com.mobilectl.model.deploy.PlayConsoleAndroidDestination
-import com.mobilectl.model.deploy.LocalAndroidDestination
-import com.mobilectl.model.deploy.TestFlightDestination
-import com.mobilectl.model.deploy.AppStoreDestination
 import com.mobilectl.model.deploy.DeploymentResults
+import com.mobilectl.model.deploy.IosDeployConfig
 import java.io.File
 
 /**
  * Orchestrates multi-destination deployments
  * Handles Android and iOS platforms with multiple deployment targets
  */
-class DeployOrchestrator(
-    private val androidDestinationFactories: Map<String, suspend (File, Map<String, String>) -> DeployResult> = createDefaultAndroidDestinations(),
-    private val iosDestinationFactories: Map<String, suspend (File, Map<String, String>) -> DeployResult> = createDefaultIosDestinations()
-) {
+interface DeployOrchestrator {
 
     /**
      * Deploy to all enabled Android destinations
      */
     suspend fun deployAndroid(
         config: AndroidDeployConfig,
-        artifactPath: String
-    ): DeploymentResults {
-        return try {
-            if (!config.enabled) {
-                return DeploymentResults(
-                    platform = "android",
-                    individual = listOf(
-                        DeployResult(
-                            success = false,
-                            platform = "android",
-                            destination = "all",
-                            message = "Android deployment is disabled"
-                        )
-                    )
-                )
-            }
-
-            val artifactFile = File(artifactPath)
-            if (!artifactFile.exists()) {
-                return DeploymentResults(
-                    platform = "android",
-                    individual = listOf(
-                        DeployResult(
-                            success = false,
-                            platform = "android",
-                            destination = "all",
-                            message = "Artifact not found: $artifactPath"
-                        )
-                    )
-                )
-            }
-
-            val results = mutableListOf<DeployResult>()
-
-            // Deploy to Firebase if enabled
-            if (config.firebase.enabled) {
-                val result = deployToDestination("firebase", artifactFile, config.firebase)
-                results.add(result)
-            }
-
-            // Deploy to Play Console if enabled
-            if (config.playConsole.enabled) {
-                val result = deployToDestination("play-console", artifactFile, config.playConsole)
-                results.add(result)
-            }
-
-            // Deploy locally if enabled
-            if (config.local.enabled) {
-                val result = deployToDestination("local", artifactFile, config.local)
-                results.add(result)
-            }
-
-            // Return all results individually (NOT aggregated)
-            DeploymentResults(
-                platform = "android",
-                individual = results
-            )
-
-        } catch (e: Exception) {
-            DeploymentResults(
-                platform = "android",
-                individual = listOf(
-                    DeployResult(
-                        success = false,
-                        platform = "android",
-                        destination = "all",
-                        message = "Deployment failed: ${e.message}",
-                        error = e
-                    )
-                )
-            )
-        }
-    }
+        artifacts: List<File>,
+        containsAPK: Boolean = false
+    ): DeploymentResults
 
     /**
      * Deploy to all enabled iOS destinations
@@ -105,254 +27,13 @@ class DeployOrchestrator(
     suspend fun deployIos(
         config: IosDeployConfig,
         artifactPath: String
-    ): DeploymentResults {
-        return try {
-            if (!config.enabled) {
-                return DeploymentResults(
-                    platform = "ios",
-                    individual = listOf(
-                        DeployResult(
-                            success = false,
-                            platform = "ios",
-                            destination = "all",
-                            message = "iOS deployment is disabled"
-                        )
-                    )
-                )
-            }
-
-            val artifactFile = File(artifactPath)
-            if (!artifactFile.exists()) {
-                return DeploymentResults(
-                    platform = "ios",
-                    individual = listOf(
-                        DeployResult(
-                            success = false,
-                            platform = "ios",
-                            destination = "all",
-                            message = "Artifact not found: $artifactPath"
-                        )
-                    )
-                )
-            }
-
-            val results = mutableListOf<DeployResult>()
-
-            // Deploy to TestFlight if enabled
-            if (config.testflight.enabled) {
-                val result = deployToDestination("testflight", artifactFile, config.testflight)
-                results.add(result)
-            }
-
-            // Deploy to App Store if enabled
-            if (config.appStore.enabled) {
-                val result = deployToDestination("app-store", artifactFile, config.appStore)
-                results.add(result)
-            }
-
-            DeploymentResults(
-                platform = "ios",
-                individual = results
-            )
-
-        } catch (e: Exception) {
-            DeploymentResults(
-                platform = "ios",
-                individual = listOf(
-                    DeployResult(
-                        success = false,
-                        platform = "ios",
-                        destination = "all",
-                        message = "Deployment failed: ${e.message}",
-                        error = e
-                    )
-                )
-            )
-        }
-    }
-
-    /**
-     * Deploy to a specific destination using the factory
-     */
-    private suspend fun deployToDestination(
-        destinationName: String,
-        artifactFile: File,
-        config: Any
-    ): DeployResult {
-        return try {
-            // Get the factory for this destination
-            val factory = androidDestinationFactories[destinationName]
-                ?: iosDestinationFactories[destinationName]
-                ?: return DeployResult(
-                    success = false,
-                    platform = "unknown",
-                    destination = destinationName,
-                    message = "Unknown destination: $destinationName"
-                )
-            // Build config for the destination
-            val deployConfig = buildDestinationConfig(destinationName, config)
-
-            // Validate config
-            val errors = validateDestinationConfig(destinationName, deployConfig)
-            if (errors.isNotEmpty()) {
-                return DeployResult(
-                    success = false,
-                    platform = "unknown",
-                    destination = destinationName,
-                    message = "Configuration error: ${errors.joinToString(", ")}"
-                )
-            }
-
-            // Execute deployment using the factory
-            factory(artifactFile, deployConfig)
-
-        } catch (e: Exception) {
-            DeployResult(
-                success = false,
-                platform = "unknown",
-                error = e,
-                destination = destinationName,
-                message = "Deployment failed: ${e.message}"
-            )
-        }
-    }
-
-    /**
-     * Build deployment config for the destination
-     */
-    private fun buildDestinationConfig(
-        destinationName: String,
-        config: Any
-    ): Map<String, String> {
-        return when {
-            // Android destinations
-            destinationName == "firebase" && config is FirebaseAndroidDestination -> mapOf(
-                "serviceAccount" to config.serviceAccount,
-                "testGroups" to config.testGroups.joinToString(","),
-                "releaseNotes" to config.releaseNotes
-            )
-            destinationName == "play-console" && config is PlayConsoleAndroidDestination -> mapOf(
-                "serviceAccount" to config.serviceAccount,
-                "packageName" to config.packageName
-            )
-            destinationName == "local" && config is LocalAndroidDestination -> mapOf(
-                "outputDir" to config.outputDir
-            )
-
-            // iOS destinations
-            destinationName == "testflight" && config is TestFlightDestination -> mapOf(
-                "apiKeyPath" to config.apiKeyPath,
-                "bundleId" to config.bundleId,
-                "teamId" to config.teamId
-            )
-            destinationName == "app-store" && config is AppStoreDestination -> mapOf(
-                "apiKeyPath" to config.apiKeyPath,
-                "bundleId" to config.bundleId,
-                "teamId" to config.teamId
-            )
-
-            else -> emptyMap()
-        }
-    }
-
-    /**
-     * Validate destination configuration
-     */
-    private fun validateDestinationConfig(
-        destinationName: String,
-        config: Map<String, String>
-    ): List<String> {
-        val errors = mutableListOf<String>()
-
-        when (destinationName) {
-            "firebase" -> {
-                if (config["serviceAccount"].isNullOrBlank()) {
-                    errors.add("Firebase: serviceAccount is required")
-                }
-            }
-            "play-console" -> {
-                if (config["serviceAccount"].isNullOrBlank()) {
-                    errors.add("Play Console: serviceAccount is required")
-                }
-                if (config["packageName"].isNullOrBlank()) {
-                    errors.add("Play Console: packageName is required")
-                }
-            }
-            "testflight" -> {
-                if (config["apiKeyPath"].isNullOrBlank()) {
-                    errors.add("TestFlight: apiKeyPath is required")
-                }
-                if (config["bundleId"].isNullOrBlank()) {
-                    errors.add("TestFlight: bundleId is required")
-                }
-            }
-            "app-store" -> {
-                if (config["apiKeyPath"].isNullOrBlank()) {
-                    errors.add("App Store: apiKeyPath is required")
-                }
-                if (config["bundleId"].isNullOrBlank()) {
-                    errors.add("App Store: bundleId is required")
-                }
-            }
-        }
-
-        return errors
-    }
-
-    /**
-     * Aggregate multiple deployment results
-     * Preserves all error details for reporting
-     */
-    private fun aggregateResults(platform: String, results: List<DeployResult>): DeployResult {
-        if (results.isEmpty()) {
-            return DeployResult(
-                success = false,
-                platform = platform,
-                destination = "all",
-                message = "No deployment destinations were enabled"
-            )
-        }
-
-        val successful = results.filter { it.success }
-        val failed = results.filter { !it.success }
-
-        val message = buildString {
-            append("Deployed to ${successful.size}/${results.size} destinations")
-
-            if (failed.isNotEmpty()) {
-                append(" (${failed.size} failed)")
-
-                // Add details about failures
-                if (failed.size == 1) {
-                    append(": ${failed.first().destination} - ${failed.first().message}")
-                } else {
-                    append(":")
-                    failed.forEach { result ->
-                        append("\n  • ${result.destination}: ${result.message}")
-                    }
-                }
-            }
-        }
-
-        return DeployResult(
-            success = failed.isEmpty(),
-            platform = platform,
-            destination = "all",
-            message = message,
-            duration = results.sumOf { it.duration },
-            buildId = successful.lastOrNull()?.buildId,
-            buildUrl = successful.lastOrNull()?.buildUrl,
-            error = if (failed.isNotEmpty())
-                Exception("Multiple destinations failed:\n${failed.joinToString("\n") { "- ${it.destination}: ${it.message}" }}")
-            else
-                null
-        )
-    }
-
+    ): DeploymentResults
 }
 
 /**
- * Factory functions for default destinations
+ * Factory function to create platform-specific implementation
  */
+expect fun createDeployOrchestrator(): DeployOrchestrator
+
 expect fun createDefaultAndroidDestinations(): Map<String, suspend (File, Map<String, String>) -> DeployResult>
 expect fun createDefaultIosDestinations(): Map<String, suspend (File, Map<String, String>) -> DeployResult>

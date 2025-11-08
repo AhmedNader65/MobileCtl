@@ -115,18 +115,23 @@ class SnakeYamlConfigParser : ConfigParser {
                 ?: "release",
             flavors = (data["flavors"] as? List<*>)?.mapNotNull { it.toString() }
                 ?: emptyList(),
-            // Signing config
-            keyStore = (data["key_store"] as? String)
-                ?: (data["keyStore"] as? String)
+            outputType = (data["output_type"] as? String)
+                ?: (data["outputType"] as? String)
+                ?: "aab",
+            firebaseOutputType = (data["firebase_output_type"] as? String)
+                ?: (data["firebaseOutputType"] as? String) ?: "apk",
+            // Signing config - use asStringOrNull() to handle numeric passwords
+            keyStore = data["key_store"].asStringOrNull()
+                ?: data["keyStore"].asStringOrNull()
                 ?: System.getenv("MOBILECTL_KEYSTORE") ?: "keystore.jks",
-            keyAlias = (data["key_alias"] as? String)
-                ?: (data["keyAlias"] as? String)
+            keyAlias = data["key_alias"].asStringOrNull()
+                ?: data["keyAlias"].asStringOrNull()
                 ?: System.getenv("MOBILECTL_KEY_ALIAS") ?: "",
-            keyPassword = (data["key_password"] as? String)
-                ?: (data["keyPassword"] as? String)
+            keyPassword = data["key_password"].asStringOrNull()
+                ?: data["keyPassword"].asStringOrNull()
                 ?: System.getenv("MOBILECTL_KEY_PASSWORD") ?: "",
-            storePassword = (data["store_password"] as? String)
-                ?: (data["storePassword"] as? String)
+            storePassword = data["store_password"].asStringOrNull()
+                ?: data["storePassword"].asStringOrNull()
                 ?: System.getenv("MOBILECTL_STORE_PASSWORD") ?: "",
 
             useEnvForPasswords = (data["use_env_for_passwords"] as? Boolean)
@@ -156,9 +161,9 @@ class SnakeYamlConfigParser : ConfigParser {
         return data?.let {
             KeystoreConfig(
                 path = it["path"] as? String ?: "",
-                alias = it["alias"] as? String ?: "",
-                storePassword = it["store_password"] as? String ?: "",
-                keyPassword = it["key_password"] as? String ?: ""
+                alias = it["alias"].asStringOrNull() ?: "",
+                storePassword = it["store_password"].asStringOrNull() ?: "",
+                keyPassword = it["key_password"].asStringOrNull() ?: ""
             )
         }
     }
@@ -367,11 +372,11 @@ class SnakeYamlConfigParser : ConfigParser {
             apiKeyPath = (data["api_key_path"] as? String)
                 ?: (data["apiKeyPath"] as? String)
                 ?: "credentials/app-store-connect-api-key.json",
-            bundleId = (data["bundle_id"] as? String)
-                ?: (data["bundleId"] as? String)
+            bundleId = data["bundle_id"].asStringOrNull()
+                ?: data["bundleId"].asStringOrNull()
                 ?: "",
-            teamId = (data["team_id"] as? String)
-                ?: (data["teamId"] as? String)
+            teamId = data["team_id"].asStringOrNull()
+                ?: data["teamId"].asStringOrNull()
                 ?: ""
         )
     }
@@ -391,11 +396,11 @@ class SnakeYamlConfigParser : ConfigParser {
             apiKeyPath = (data["api_key_path"] as? String)
                 ?: (data["apiKeyPath"] as? String)
                 ?: "credentials/app-store-connect-api-key.json",
-            bundleId = (data["bundle_id"] as? String)
-                ?: (data["bundleId"] as? String)
+            bundleId = data["bundle_id"].asStringOrNull()
+                ?: data["bundleId"].asStringOrNull()
                 ?: "",
-            teamId = (data["team_id"] as? String)
-                ?: (data["teamId"] as? String)
+            teamId = data["team_id"].asStringOrNull()
+                ?: data["teamId"].asStringOrNull()
                 ?: ""
         )
     }
@@ -475,6 +480,7 @@ class SnakeYamlConfigParser : ConfigParser {
                 "default_flavor" to config.build.android.defaultFlavor,
                 "default_type" to config.build.android.defaultType,
                 "flavors" to config.build.android.flavors.takeIf { it.isNotEmpty() },
+                "output_type" to config.build.android.outputType.takeIf { it != "aab" },  // Only include if not default
                 "key_store" to config.build.android.keyStore.takeIf { it.isNotEmpty() },
                 "key_alias" to config.build.android.keyAlias.takeIf { it.isNotEmpty() },
                 "key_password" to config.build.android.keyPassword.takeIf { it.isNotEmpty() },
@@ -673,6 +679,17 @@ class SnakeYamlConfigParser : ConfigParser {
             val varName = matchResult.groupValues[1]
             System.getenv(varName) ?: matchResult.value  // Keep original if not found
         }
+    }
+
+    /**
+     * Convert YAML value to String, handling numbers without quotes
+     * - null -> null
+     * - String -> String
+     * - Number -> String (converts 123456 to "123456")
+     * - Boolean -> String
+     */
+    private fun Any?.asStringOrNull(): String? {
+        return this?.toString()
     }
 }
 

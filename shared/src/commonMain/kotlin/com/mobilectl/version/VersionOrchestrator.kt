@@ -48,7 +48,8 @@ class VersionOrchestrator(
             val filesUpdated = fileUpdater.updateVersionInFiles(
                 currentVersion.toString(),
                 newVersion.toString(),
-                filesToUpdate
+                filesToUpdate,
+                incrementVersionCode = true
             )
 
             // Step 3: Update config

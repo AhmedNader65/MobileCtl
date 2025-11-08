@@ -1,13 +1,11 @@
 package com.mobilectl.version
 
-import com.mobilectl.util.createLogger
+import com.mobilectl.util.PremiumLogger
 import java.io.File
 
 fun createVersionDetector(): VersionDetector = JvmVersionDetector()
 
 class JvmVersionDetector : VersionDetector {
-
-    private val logger = createLogger("VersionDetector")
 
     /**
      * Auto-detect version from app files
@@ -16,23 +14,23 @@ class JvmVersionDetector : VersionDetector {
     override fun detectVersionFromApp(baseDir: String): SemanticVersion? {
         // Try Android first (most common)
         detectFromBuildGradle(baseDir)?.let {
-            logger.debug("Detected version from build.gradle: $it")
+            PremiumLogger.info("Detected version from build.gradle: $it")
             return it
         }
 
         // Try package.json (React Native)
         detectFromPackageJson(baseDir)?.let {
-            logger.debug("Detected version from package.json: $it")
+            PremiumLogger.info("Detected version from package.json: $it")
             return it
         }
 
         // Try iOS Info.plist
         detectFromPlist(baseDir)?.let {
-            logger.debug("Detected version from Info.plist: $it")
+            PremiumLogger.info("Detected version from Info.plist: $it")
             return it
         }
 
-        logger.warn("Could not auto-detect version from app files")
+        PremiumLogger.info("Could not auto-detect version from app files")
         return null
     }
 

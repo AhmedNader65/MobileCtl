@@ -11,10 +11,12 @@ data class AndroidBuildConfig(
     var defaultFlavor: String = "",
     var defaultType: String = "release",
     val flavors: List<String> = emptyList(),
-    val keyStore: String = "keystore.jks",  // Path to keystore
-    val keyAlias: String = "",               // Alias in keystore
-    val keyPassword: String = "",            // Key password (from env)
-    val storePassword: String = "",          // Keystore password (from env)
+    val outputType: String = "aab",              // "apk" or "aab" (App Bundle) - default for all platforms
+    val firebaseOutputType: String? = null,      // Optional override for Firebase App Distribution
+    val keyStore: String = "keystore.jks",       // Path to keystore
+    val keyAlias: String = "",                   // Alias in keystore
+    val keyPassword: String = "",                // Key password (from env)
+    val storePassword: String = "",              // Keystore password (from env)
 
     val useEnvForPasswords: Boolean = true
 )

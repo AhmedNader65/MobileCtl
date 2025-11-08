@@ -2,6 +2,7 @@ package com.mobilectl.commands.deploy
 
 import com.mobilectl.config.Config
 import com.mobilectl.model.Platform
+import com.mobilectl.util.PremiumLogger
 import java.io.PrintWriter
 import java.nio.charset.StandardCharsets
 
@@ -48,7 +49,6 @@ class DeploymentPresenter(
         if (destinations.isNotEmpty()) {
             items["Destinations"] = destinations.joinToString(", ")
         }
-        print(config)
         // Show flavor/group info
         if (allFlavors) {
             items["Flavors"] = "All configured flavors"
@@ -90,14 +90,14 @@ class DeploymentPresenter(
             items["Build Type"] = config.build.android.defaultType
         }
 
-        com.mobilectl.util.PremiumLogger.box("Deployment Configuration", items, success = true)
+        PremiumLogger.box("Deployment Configuration", items, success = true)
     }
 
     /**
      * Shows detailed dry-run plan
      */
     fun showDryRunDetails(config: Config, platforms: Set<Platform>, env: String) {
-        com.mobilectl.util.PremiumLogger.header("Deployment Plan (DRY-RUN)", "📋")
+        PremiumLogger.header("Deployment Plan (DRY-RUN)", "📋")
 
         platforms.forEach { platform ->
             when (platform) {
@@ -114,27 +114,27 @@ class DeploymentPresenter(
     private fun showAndroidPlan(config: Config, env: String) {
         val androidConfig = config.deploy?.android
         if (androidConfig == null) {
-            com.mobilectl.util.PremiumLogger.info("Android: No deployment configured")
+            PremiumLogger.info("Android: No deployment configured")
             return
         }
 
-        com.mobilectl.util.PremiumLogger.simpleInfo("Android Platform:")
+        PremiumLogger.simpleInfo("Android Platform:")
 
         if (config.version?.autoIncrement == true) {
-            com.mobilectl.util.PremiumLogger.info("  • Version Auto-Increment: Enabled")
+            PremiumLogger.info("  • Version Auto-Increment: Enabled")
         }
         if (androidConfig.firebase.enabled) {
-            com.mobilectl.util.PremiumLogger.info("  • Firebase App Distribution")
-            com.mobilectl.util.PremiumLogger.info("    - Service Account: ${androidConfig.firebase.serviceAccount}")
-            com.mobilectl.util.PremiumLogger.info("    - Test Groups: ${androidConfig.firebase.testGroups.joinToString()}")
+            PremiumLogger.info("  • Firebase App Distribution")
+            PremiumLogger.info("    - Service Account: ${androidConfig.firebase.serviceAccount}")
+            PremiumLogger.info("    - Test Groups: ${androidConfig.firebase.testGroups.joinToString()}")
         }
 
         if (androidConfig.playConsole.enabled) {
-            com.mobilectl.util.PremiumLogger.info("  • Google Play Console")
+            PremiumLogger.info("  • Google Play Console")
         }
 
         if (androidConfig.local.enabled) {
-            com.mobilectl.util.PremiumLogger.info("  • Local filesystem: ${androidConfig.local.outputDir}")
+            PremiumLogger.info("  • Local filesystem: ${androidConfig.local.outputDir}")
         }
 
         println()
@@ -146,18 +146,18 @@ class DeploymentPresenter(
     private fun showIosPlan(config: Config, env: String) {
         val iosConfig = config.deploy?.ios
         if (iosConfig == null) {
-            com.mobilectl.util.PremiumLogger.info("iOS: No deployment configured")
+            PremiumLogger.info("iOS: No deployment configured")
             return
         }
 
-        com.mobilectl.util.PremiumLogger.simpleInfo("iOS Platform:")
+        PremiumLogger.simpleInfo("iOS Platform:")
 
         if (iosConfig.testflight.enabled) {
-            com.mobilectl.util.PremiumLogger.info("  • TestFlight")
+            PremiumLogger.info("  • TestFlight")
         }
 
         if (iosConfig.appStore.enabled) {
-            com.mobilectl.util.PremiumLogger.info("  • App Store")
+            PremiumLogger.info("  • App Store")
         }
 
         println()
@@ -183,9 +183,9 @@ class DeploymentPresenter(
      * Shows header for deployment start
      */
     fun showDeploymentHeader(env: String, platforms: Set<Platform>) {
-        com.mobilectl.util.PremiumLogger.header("Starting Deployment", "🚀")
-        com.mobilectl.util.PremiumLogger.info("Environment: $env")
-        com.mobilectl.util.PremiumLogger.info("Platforms: ${platforms.joinToString(", ")}")
+        PremiumLogger.header("Starting Deployment", "🚀")
+        PremiumLogger.info("Environment: $env")
+        PremiumLogger.info("Platforms: ${platforms.joinToString(", ")}")
         println()
     }
 }
