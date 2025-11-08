@@ -1,0 +1,237 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Triggers on version tags like v1.0.0, v2.1.3, etc.
+  workflow_dispatch:  # Allows manual triggering
+
+permissions:
+  contents: write  # Required for creating releases
+
+jobs:
+  build:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            artifact: mobilectl-linux.tar.gz
+          - os: macos-latest
+            platform: macos
+            artifact: mobilectl-macos.tar.gz
+          - os: windows-latest
+            platform: windows
+            artifact: mobilectl-windows.zip
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant execute permission for gradlew (Unix)
+        if: runner.os != 'Windows'
+        run: chmod +x gradlew
+
+      - name: Build with Gradle
+        run: ./gradlew :cli:jar --no-daemon
+
+      - name: Create distribution directory
+        shell: bash
+        run: |
+          mkdir -p dist/mobilectl/bin
+          mkdir -p dist/mobilectl/lib
+
+      - name: Copy JAR file
+        shell: bash
+        run: |
+          cp cli/build/libs/mobilectl.jar dist/mobilectl/lib/mobilectl.jar
+
+      - name: Create launcher script (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cat > dist/mobilectl/bin/mobilectl << 'EOF'
+          #!/bin/bash
+          # mobilectl launcher script
+
+          # Get the directory where this script is located
+          SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+          MOBILECTL_HOME="$( cd "$SCRIPT_DIR/.." && pwd )"
+
+          # Set Java options
+          JAVA_OPTS="${JAVA_OPTS:--Xmx1g}"
+
+          # Run the application
+          exec java $JAVA_OPTS -jar "$MOBILECTL_HOME/lib/mobilectl.jar" "$@"
+          EOF
+          chmod +x dist/mobilectl/bin/mobilectl
+
+      - name: Create launcher script (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          cat > dist/mobilectl/bin/mobilectl.bat << 'EOF'
+          @echo off
+          REM mobilectl launcher script for Windows
+
+          setlocal
+
+          REM Get the directory where this script is located
+          set SCRIPT_DIR=%~dp0
+          set MOBILECTL_HOME=%SCRIPT_DIR%..
+
+          REM Set Java options
+          if "%JAVA_OPTS%"=="" set JAVA_OPTS=-Xmx1g
+
+          REM Run the application
+          java %JAVA_OPTS% -jar "%MOBILECTL_HOME%\lib\mobilectl.jar" %*
+          EOF
+
+      - name: Create PowerShell launcher (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          cat > dist/mobilectl/bin/mobilectl.ps1 << 'EOF'
+          # mobilectl launcher script for PowerShell
+
+          $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+          $mobilectlHome = Split-Path -Parent $scriptDir
+          $jarPath = Join-Path $mobilectlHome "lib\mobilectl.jar"
+
+          $javaOpts = if ($env:JAVA_OPTS) { $env:JAVA_OPTS } else { "-Xmx1g" }
+
+          & java $javaOpts.Split() -jar $jarPath $args
+          EOF
+
+      - name: Create README
+        shell: bash
+        run: |
+          cat > dist/mobilectl/README.txt << 'EOF'
+          mobilectl - Modern DevOps automation for mobile apps
+
+          Installation:
+
+          1. Add the 'bin' directory to your PATH
+          2. Run: mobilectl --version
+          3. Get started: mobilectl setup
+
+          Documentation: https://github.com/AhmedNader65/MobileCtl
+          EOF
+
+      - name: Package for Unix (tar.gz)
+        if: runner.os != 'Windows'
+        run: |
+          cd dist
+          tar -czf ../mobilectl-${{ matrix.platform }}.tar.gz mobilectl/
+
+      - name: Package for Windows (zip)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist/mobilectl/* -DestinationPath mobilectl-windows.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}
+          retention-days: 1
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+
+      - name: Move artifacts to root
+        run: |
+          mv artifacts/mobilectl-linux.tar.gz/mobilectl-linux.tar.gz .
+          mv artifacts/mobilectl-macos.tar.gz/mobilectl-macos.tar.gz .
+          mv artifacts/mobilectl-windows.zip/mobilectl-windows.zip .
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Extract changelog for this version if CHANGELOG.md exists
+          if [ -f CHANGELOG.md ]; then
+            VERSION="${{ steps.get_version.outputs.VERSION }}"
+            # Simple extraction - you can make this more sophisticated
+            echo "CHANGELOG<<EOF" >> $GITHUB_OUTPUT
+            echo "See CHANGELOG.md for details" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "CHANGELOG=No changelog available" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.get_version.outputs.VERSION }}
+          name: Release ${{ steps.get_version.outputs.VERSION }}
+          body: |
+            ## mobilectl ${{ steps.get_version.outputs.VERSION }}
+
+            ### Installation
+
+            **One-line install:**
+
+            macOS / Linux:
+            ```bash
+            curl -sSL https://raw.githubusercontent.com/AhmedNader65/MobileCtl/main/install.sh | bash
+            ```
+
+            Windows (PowerShell):
+            ```powershell
+            irm https://raw.githubusercontent.com/AhmedNader65/MobileCtl/main/install.ps1 | iex
+            ```
+
+            **Manual installation:**
+            - Download the appropriate package for your platform below
+            - Extract the archive
+            - Add the `bin` directory to your PATH
+
+            ### What's Changed
+
+            ${{ steps.changelog.outputs.CHANGELOG }}
+
+            ### Downloads
+
+            - **Linux**: mobilectl-linux.tar.gz
+            - **macOS**: mobilectl-macos.tar.gz
+            - **Windows**: mobilectl-windows.zip
+
+            ### Documentation
+
+            - [Installation Guide](https://github.com/AhmedNader65/MobileCtl/blob/main/INSTALL.md)
+            - [Getting Started](https://github.com/AhmedNader65/MobileCtl/blob/main/README.md)
+            - [Configuration Reference](https://github.com/AhmedNader65/MobileCtl/blob/main/docs/config-reference.md)
+          files: |
+            mobilectl-linux.tar.gz
+            mobilectl-macos.tar.gz
+            mobilectl-windows.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
