@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitepress'
 
 export default defineConfig({
+  base: '/MobileCtl/',
   title: 'MobileCtl',
   description: 'Modern DevOps automation for mobile apps. Build, version, and deploy iOS & Android with a single command.',
 
@@ -121,7 +122,7 @@ export default defineConfig({
     },
 
     editLink: {
-      pattern: 'https://github.com/AhmedNader65/MobileCtl/edit/main/website/:path',
+      pattern: 'https://github.com/AhmedNader65/MobileCtl/edit/master/website/:path',
       text: 'Edit this page on GitHub'
     }
   }
