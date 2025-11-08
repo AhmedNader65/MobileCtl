@@ -1,5 +1,5 @@
 # mobilectl Windows Installation Script
-# Usage: irm https://raw.githubusercontent.com/AhmedNader65/MobileCtl/main/install.ps1 | iex
+# Usage: irm https://raw.githubusercontent.com/AhmedNader65/MobileCtl/master/install.ps1 | iex
 
 $ErrorActionPreference = "Stop"
 
