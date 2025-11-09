@@ -4,6 +4,7 @@ import com.mobilectl.builder.BuildOrchestrator
 import com.mobilectl.builder.BuildResult
 import com.mobilectl.builder.JvmBuildManager
 import com.mobilectl.builder.android.AndroidBuilder
+import com.mobilectl.builder.android.BuildCacheManager
 import com.mobilectl.builder.IosBuilder
 import com.mobilectl.commands.changelog.ChangelogGenerateHandler
 import com.mobilectl.commands.version.VersionBumpHandler
@@ -30,7 +31,7 @@ class DeploymentWorkflow(
     // Strategy helpers
     private val flavorSelector = FlavorSelector()
     private val platformSelector = PlatformSelector()
-    private val sourceChangeDetector = SourceChangeDetector(File(workingPath), verbose)
+    private val buildCacheManager = BuildCacheManager()
 
     /**
      * Execute version bump before deployment
@@ -98,18 +99,58 @@ class DeploymentWorkflow(
     }
 
     /**
-     * Check if build is needed
+     * Check if build is needed using cache validation
      */
     fun checkIfBuildNeeded(config: Config, platforms: Set<Platform>): Boolean {
         platforms.forEach { platform ->
-            val artifactPath = when (platform) {
-                Platform.ANDROID -> config.deploy?.android?.artifactPath
-                Platform.IOS -> config.deploy?.ios?.artifactPath
-            } ?: return true
+            when (platform) {
+                Platform.ANDROID -> {
+                    // Check artifact exists
+                    val artifactPath = config.deploy?.android?.artifactPath
+                    if (artifactPath == null) {
+                        return true
+                    }
 
-            val needsRebuild = sourceChangeDetector.needsRebuild(artifactPath, platform)
-            if (needsRebuild) {
-                return true
+                    val artifactFile = if (File(artifactPath).isAbsolute) {
+                        File(artifactPath)
+                    } else {
+                        File(workingPath, artifactPath)
+                    }
+
+                    if (!artifactFile.exists()) {
+                        if (verbose) {
+                            PremiumLogger.info("Artifact missing: $artifactPath")
+                        }
+                        return true
+                    }
+
+                    // Use BuildCacheManager for accurate hash-based detection
+                    val cacheValidation = buildCacheManager.validateCache(workingPath)
+                    if (cacheValidation.needsRebuild) {
+                        if (verbose) {
+                            PremiumLogger.info("Cache: ${cacheValidation.reason}")
+                        }
+                        return true
+                    }
+                }
+                Platform.IOS -> {
+                    // For iOS, still check if artifact exists
+                    // TODO: Implement iOS cache validation when iOS support is added
+                    val artifactPath = config.deploy?.ios?.artifactPath
+                    if (artifactPath == null) {
+                        return true
+                    }
+
+                    val artifactFile = if (File(artifactPath).isAbsolute) {
+                        File(artifactPath)
+                    } else {
+                        File(workingPath, artifactPath)
+                    }
+
+                    if (!artifactFile.exists()) {
+                        return true
+                    }
+                }
             }
         }
 
