@@ -45,6 +45,14 @@ export default defineConfig({
           ]
         },
         {
+          text: 'Credentials & Setup',
+          items: [
+            { text: 'Google Play Service Account', link: '/guide/google-play-service-account' },
+            { text: 'Firebase Service Account', link: '/guide/firebase-service-account' },
+            { text: 'App Store Connect API Key', link: '/guide/app-store-connect-api-key' }
+          ]
+        },
+        {
           text: 'Core Concepts',
           items: [
             { text: 'Configuration', link: '/guide/configuration' },
