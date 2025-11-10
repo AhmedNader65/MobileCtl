@@ -79,12 +79,10 @@ fun WelcomeScreen(
                     onClick = {
                         val path = selectProjectDirectory()
                         if (path != null) {
-                            if (isValidMobileCtlProject(path)) {
-                                RecentProjectsManager.addProject(path)
-                                onProjectSelected(path)
-                            } else {
-                                showError = "No mobilectl.yaml found in selected directory"
-                            }
+                            // Always open the project, even if config doesn't exist
+                            // (setup wizard will handle missing config)
+                            RecentProjectsManager.addProject(path)
+                            onProjectSelected(path)
                         }
                     }
                 )
@@ -340,8 +338,8 @@ private fun selectProjectDirectory(): String? {
     }
 }
 
-private fun isValidMobileCtlProject(path: String): Boolean {
-    val configFile = File(path, "mobilectl.yaml")
-    val altConfigFile = File(path, "mobilectl.yml")
+private fun hasConfigFile(path: String): Boolean {
+    val configFile = File(path, "mobileops.yaml")
+    val altConfigFile = File(path, "mobileops.yml")
     return configFile.exists() || altConfigFile.exists()
 }

@@ -15,8 +15,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.mobilectl.desktop.ui.screens.*
+import java.io.File
 
 enum class Screen {
+    SETUP,
     DASHBOARD,
     DEPLOY_PROGRESS,
     CONFIG,
@@ -44,8 +46,33 @@ fun App(
         return
     }
 
-    var currentScreen by remember { mutableStateOf(Screen.DASHBOARD) }
+    // Check if config file exists
+    val hasConfig = remember(currentProjectPath) {
+        val configFile = File(currentProjectPath, "mobileops.yaml")
+        val altConfigFile = File(currentProjectPath, "mobileops.yml")
+        configFile.exists() || altConfigFile.exists()
+    }
+
+    // Determine initial screen based on config existence
+    var currentScreen by remember {
+        mutableStateOf(if (hasConfig) Screen.DASHBOARD else Screen.SETUP)
+    }
     var deploymentParams by remember { mutableStateOf(DeploymentParams()) }
+
+    // Show setup wizard if no config exists
+    if (currentScreen == Screen.SETUP) {
+        SetupWizardScreen(
+            projectPath = currentProjectPath,
+            onSetupComplete = { currentScreen = Screen.DASHBOARD },
+            onCancel = {
+                // Return to welcome screen by clearing project selection
+                // This requires handling in Main.kt to set currentProjectPath to null
+                // For now, just navigate to dashboard - user can restart app
+                currentScreen = Screen.DASHBOARD
+            }
+        )
+        return
+    }
 
     Scaffold(
         topBar = {
