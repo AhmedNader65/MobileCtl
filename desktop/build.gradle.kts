@@ -48,7 +48,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
             packageName = "MobileCtl"
-            packageVersion = "0.3.2"
+            packageVersion = "1.0.0"
             description = "Mobile deployment automation tool with desktop GUI"
             copyright = "© 2025 MobileCtl Contributors"
             vendor = "MobileCtl"
@@ -58,6 +58,8 @@ compose.desktop {
             }
             macOS {
                 iconFile.set(project.file("src/desktopMain/resources/icon.icns"))
+                // macOS DMG requires MAJOR > 0, using 1.0.0 for packaging
+                dmgPackageVersion = "1.0.0"
             }
             windows {
                 iconFile.set(project.file("src/desktopMain/resources/icon.ico"))
