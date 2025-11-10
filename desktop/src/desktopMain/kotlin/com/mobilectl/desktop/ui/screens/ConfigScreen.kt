@@ -44,28 +44,27 @@ fun ConfigScreen(
             )
             
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (state.hasUnsavedChanges) {
-                    OutlinedButton(
-                        onClick = { viewModel.discardChanges() },
-                        modifier = Modifier.height(32.dp)
-                    ) {
-                        Text("Discard", fontSize = 13.sp)
-                    }
-                    Button(
-                        onClick = { viewModel.saveConfig() },
-                        modifier = Modifier.height(32.dp)
-                    ) {
-                        Text("Save Changes", fontSize = 13.sp)
-                    }
-                } else {
-                    TextButton(
-                        onClick = onNavigateBack,
-                        modifier = Modifier.height(32.dp)
-                    ) {
-                        Icon(Icons.Default.ArrowBack, null, modifier = Modifier.size(16.dp))
+                Button(
+                    onClick = { viewModel.saveConfig() },
+                    modifier = Modifier.height(32.dp),
+                    enabled = state.validationErrors.isEmpty() && !state.isSaving
+                ) {
+                    if (state.isSaving) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
                         Spacer(Modifier.width(4.dp))
-                        Text("Back", fontSize = 13.sp)
                     }
+                    Text("Save", fontSize = 13.sp)
+                }
+                TextButton(
+                    onClick = onNavigateBack,
+                    modifier = Modifier.height(32.dp)
+                ) {
+                    Icon(Icons.Default.ArrowBack, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Back", fontSize = 13.sp)
                 }
             }
         }
@@ -99,17 +98,24 @@ fun ConfigScreen(
                     MinimalCard {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             CompactTextField(
-                                value = state.firebase.serviceAccount,
+                                value = state.firebase.serviceAccountPath,
                                 onValueChange = { viewModel.updateFirebaseServiceAccount(it) },
                                 label = "Service Account JSON",
                                 placeholder = "path/to/service-account.json",
                                 modifier = Modifier.fillMaxWidth()
                             )
                             CompactTextField(
-                                value = state.firebase.appId,
-                                onValueChange = { viewModel.updateFirebaseAppId(it) },
-                                label = "App ID",
-                                placeholder = "1:1234567890:android:abcdef",
+                                value = state.firebase.googleServicesPath,
+                                onValueChange = { viewModel.updateFirebaseGoogleServices(it) },
+                                label = "Google Services JSON",
+                                placeholder = "path/to/google-services.json",
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            CompactTextField(
+                                value = state.firebase.releaseNotes,
+                                onValueChange = { viewModel.updateFirebaseReleaseNotes(it) },
+                                label = "Release Notes",
+                                placeholder = "Automated upload",
                                 modifier = Modifier.fillMaxWidth()
                             )
                             CompactTextField(
@@ -143,7 +149,7 @@ fun ConfigScreen(
                     MinimalCard {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             CompactTextField(
-                                value = state.playConsole.serviceAccount,
+                                value = state.playConsole.serviceAccountPath,
                                 onValueChange = { viewModel.updatePlayConsoleServiceAccount(it) },
                                 label = "Service Account JSON",
                                 placeholder = "path/to/play-service-account.json",
@@ -176,7 +182,7 @@ fun ConfigScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         CompactTextField(
                             value = state.signing.keystorePath,
-                            onValueChange = { viewModel.updateKeystorePath(it) },
+                            onValueChange = { viewModel.updateSigningKeystorePath(it) },
                             label = "Keystore Path",
                             placeholder = "path/to/keystore.jks",
                             modifier = Modifier.fillMaxWidth()
@@ -186,20 +192,27 @@ fun ConfigScreen(
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             CompactTextField(
-                                value = state.signing.keystorePassword,
-                                onValueChange = { viewModel.updateKeystorePassword(it) },
-                                label = "Keystore Password",
+                                value = state.signing.storePassword,
+                                onValueChange = { viewModel.updateSigningStorePassword(it) },
+                                label = "Store Password",
                                 placeholder = "••••••••",
                                 modifier = Modifier.weight(1f)
                             )
                             CompactTextField(
                                 value = state.signing.keyAlias,
-                                onValueChange = { viewModel.updateKeyAlias(it) },
+                                onValueChange = { viewModel.updateSigningKeyAlias(it) },
                                 label = "Key Alias",
                                 placeholder = "key0",
                                 modifier = Modifier.weight(1f)
                             )
                         }
+                        CompactTextField(
+                            value = state.signing.keyPassword,
+                            onValueChange = { viewModel.updateSigningKeyPassword(it) },
+                            label = "Key Password",
+                            placeholder = "••••••••",
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
             }
