@@ -13,12 +13,14 @@ import com.mobilectl.desktop.ui.screens.DashboardScreen
 import com.mobilectl.desktop.ui.screens.ConfigScreen
 import com.mobilectl.desktop.ui.screens.DeployProgressScreen
 import com.mobilectl.desktop.ui.screens.ArtifactPreviewScreen
+import com.mobilectl.desktop.ui.screens.ChangelogEditorScreen
 
 enum class Screen {
     DASHBOARD,
     DEPLOY_PROGRESS,
     CONFIG,
-    ARTIFACT_PREVIEW
+    ARTIFACT_PREVIEW,
+    CHANGELOG_EDITOR
 }
 
 data class DeploymentParams(
@@ -69,6 +71,10 @@ fun App(
                         Icon(Icons.Default.FolderOpen, "Artifacts")
                     }
 
+                    IconButton(onClick = { currentScreen = Screen.CHANGELOG_EDITOR }) {
+                        Icon(Icons.Default.Article, "Changelog")
+                    }
+
                     IconButton(onClick = { currentScreen = Screen.CONFIG }) {
                         Icon(Icons.Default.Settings, "Settings")
                     }
@@ -105,6 +111,9 @@ fun App(
                         track = deploymentParams.track
                     )
                     Screen.ARTIFACT_PREVIEW -> ArtifactPreviewScreen(
+                        onNavigateBack = { currentScreen = Screen.DASHBOARD }
+                    )
+                    Screen.CHANGELOG_EDITOR -> ChangelogEditorScreen(
                         onNavigateBack = { currentScreen = Screen.DASHBOARD }
                     )
                     Screen.CONFIG -> ConfigScreen(
