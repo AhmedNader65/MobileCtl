@@ -3,101 +3,102 @@ package com.mobilectl.desktop.ui.theme
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
-// Premium Light Theme Colors
+// Minimalist Premium Theme - Inspired by Cursor, Vercel, Maestro Studio
 private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF6366F1), // Vibrant indigo
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFEEF2FF),
-    onPrimaryContainer = Color(0xFF312E81),
+    primary = Color(0xFF000000),           // Pure black
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = Color(0xFFF5F5F5),
+    onPrimaryContainer = Color(0xFF171717),
 
-    secondary = Color(0xFF8B5CF6), // Purple
-    onSecondary = Color.White,
-    secondaryContainer = Color(0xFFF5F3FF),
-    onSecondaryContainer = Color(0xFF5B21B6),
+    secondary = Color(0xFF404040),
+    onSecondary = Color(0xFFFFFFFF),
+    secondaryContainer = Color(0xFFFAFAFA),
+    onSecondaryContainer = Color(0xFF262626),
 
-    tertiary = Color(0xFF06B6D4), // Cyan
-    onTertiary = Color.White,
-    tertiaryContainer = Color(0xFFECFEFF),
-    onTertiaryContainer = Color(0xFF164E63),
+    tertiary = Color(0xFF666666),
+    onTertiary = Color(0xFFFFFFFF),
+
+    background = Color(0xFFFFFFFF),         // Pure white
+    onBackground = Color(0xFF0A0A0A),
+
+    surface = Color(0xFFFFFFFF),
+    onSurface = Color(0xFF0A0A0A),
+    surfaceVariant = Color(0xFFFAFAFA),
+    onSurfaceVariant = Color(0xFF737373),
+
+    outline = Color(0xFFE5E5E5),
+    outlineVariant = Color(0xFFF5F5F5),
 
     error = Color(0xFFEF4444),
-    onError = Color.White,
+    onError = Color(0xFFFFFFFF),
     errorContainer = Color(0xFFFEE2E2),
     onErrorContainer = Color(0xFF991B1B),
 
-    background = Color(0xFFFAFAFA),
-    onBackground = Color(0xFF1F2937),
-
-    surface = Color.White,
-    onSurface = Color(0xFF1F2937),
-    surfaceVariant = Color(0xFFF3F4F6),
-    onSurfaceVariant = Color(0xFF6B7280),
-
-    outline = Color(0xFFE5E7EB),
-    outlineVariant = Color(0xFFF3F4F6),
+    surfaceTint = Color.Transparent
 )
 
-// Premium Dark Theme Colors
 private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFF818CF8), // Softer indigo for dark mode
-    onPrimary = Color(0xFF1E1B4B),
-    primaryContainer = Color(0xFF3730A3),
-    onPrimaryContainer = Color(0xFFE0E7FF),
+    primary = Color(0xFFFFFFFF),           // Pure white
+    onPrimary = Color(0xFF000000),
+    primaryContainer = Color(0xFF1A1A1A),
+    onPrimaryContainer = Color(0xFFFAFAFA),
 
-    secondary = Color(0xFFA78BFA), // Lighter purple
-    onSecondary = Color(0xFF4C1D95),
-    secondaryContainer = Color(0xFF6D28D9),
-    onSecondaryContainer = Color(0xFFF3E8FF),
+    secondary = Color(0xFFA3A3A3),
+    onSecondary = Color(0xFF000000),
+    secondaryContainer = Color(0xFF171717),
+    onSecondaryContainer = Color(0xFFD4D4D4),
 
-    tertiary = Color(0xFF22D3EE), // Bright cyan
-    onTertiary = Color(0xFF164E63),
-    tertiaryContainer = Color(0xFF0E7490),
-    onTertiaryContainer = Color(0xFFCFFAFE),
+    tertiary = Color(0xFF737373),
+    onTertiary = Color(0xFF000000),
 
-    error = Color(0xFFF87171),
-    onError = Color(0xFF7F1D1D),
-    errorContainer = Color(0xFF991B1B),
-    onErrorContainer = Color(0xFFFECECA),
+    background = Color(0xFF000000),         // Pure black
+    onBackground = Color(0xFFFAFAFA),
 
-    background = Color(0xFF0F172A), // Deep slate
-    onBackground = Color(0xFFF1F5F9),
+    surface = Color(0xFF0A0A0A),
+    onSurface = Color(0xFFFAFAFA),
+    surfaceVariant = Color(0xFF171717),
+    onSurfaceVariant = Color(0xFFA3A3A3),
 
-    surface = Color(0xFF1E293B), // Slate surface
-    onSurface = Color(0xFFF1F5F9),
-    surfaceVariant = Color(0xFF334155),
-    onSurfaceVariant = Color(0xFFCBD5E1),
+    outline = Color(0xFF262626),
+    outlineVariant = Color(0xFF1A1A1A),
 
-    outline = Color(0xFF475569),
-    outlineVariant = Color(0xFF334155),
+    error = Color(0xFFEF4444),
+    onError = Color(0xFF000000),
+    errorContainer = Color(0xFF7F1D1D),
+    onErrorContainer = Color(0xFFFEE2E2),
+
+    surfaceTint = Color.Transparent
 )
 
-// Premium gradient colors
-object GradientColors {
-    val primaryGradient = listOf(
-        Color(0xFF6366F1),
-        Color(0xFF8B5CF6)
-    )
+// Minimal accent colors for subtle highlights
+object AccentColors {
+    val success = Color(0xFF10B981)
+    val successLight = Color(0xFFD1FAE5)
+    val successDark = Color(0xFF065F46)
 
-    val successGradient = listOf(
-        Color(0xFF10B981),
-        Color(0xFF06B6D4)
-    )
+    val warning = Color(0xFFF59E0B)
+    val warningLight = Color(0xFFFEF3C7)
+    val warningDark = Color(0xFF92400E)
 
-    val warningGradient = listOf(
-        Color(0xFFF59E0B),
-        Color(0xFFEF4444)
-    )
+    val info = Color(0xFF3B82F6)
+    val infoLight = Color(0xFFDBEAFE)
+    val infoDark = Color(0xFF1E40AF)
 
-    val accentGradient = listOf(
-        Color(0xFFEC4899),
-        Color(0xFF8B5CF6)
-    )
+    // Neutral palette
+    val neutral50 = Color(0xFFFAFAFA)
+    val neutral100 = Color(0xFFF5F5F5)
+    val neutral200 = Color(0xFFE5E5E5)
+    val neutral300 = Color(0xFFD4D4D4)
+    val neutral400 = Color(0xFFA3A3A3)
+    val neutral500 = Color(0xFF737373)
+    val neutral600 = Color(0xFF525252)
+    val neutral700 = Color(0xFF404040)
+    val neutral800 = Color(0xFF262626)
+    val neutral900 = Color(0xFF171717)
+    val neutral950 = Color(0xFF0A0A0A)
 }
-
-fun Brush.Companion.premiumGradient(colors: List<Color>) = Brush.horizontalGradient(colors)
 
 @Composable
 fun MobileCtlTheme(

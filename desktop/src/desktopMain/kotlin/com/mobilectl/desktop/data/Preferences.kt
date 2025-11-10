@@ -20,7 +20,8 @@ data class WindowPreferences(
 data class AppPreferences(
     val window: WindowPreferences = WindowPreferences(),
     val isDarkTheme: Boolean = false,
-    val lastOpenedScreen: String = "DASHBOARD"
+    val lastOpenedScreen: String = "DASHBOARD",
+    val currentProjectPath: String? = null
 )
 
 object PreferencesManager {

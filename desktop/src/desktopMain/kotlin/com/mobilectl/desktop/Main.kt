@@ -17,6 +17,7 @@ fun main() = application {
     // Load preferences
     val savedPrefs = remember { PreferencesManager.load() }
     var isDarkTheme by remember { mutableStateOf(savedPrefs.isDarkTheme) }
+    var currentProjectPath by remember { mutableStateOf(savedPrefs.currentProjectPath) }
 
     // Create window state from saved preferences
     val windowState = rememberWindowState(
@@ -45,7 +46,8 @@ fun main() = application {
                     y = windowState.position.y.value.toInt(),
                     isMaximized = windowState.placement == WindowPlacement.Maximized
                 ),
-                isDarkTheme = isDarkTheme
+                isDarkTheme = isDarkTheme,
+                currentProjectPath = currentProjectPath
             )
             PreferencesManager.save(currentPrefs)
         }
@@ -99,7 +101,13 @@ fun main() = application {
         MobileCtlTheme(darkTheme = isDarkTheme) {
             App(
                 isDarkTheme = isDarkTheme,
-                onToggleTheme = { isDarkTheme = !isDarkTheme }
+                onToggleTheme = { isDarkTheme = !isDarkTheme },
+                currentProjectPath = currentProjectPath,
+                onProjectSelected = { path ->
+                    currentProjectPath = path
+                    // Change working directory
+                    System.setProperty("user.dir", path)
+                }
             )
         }
     }
