@@ -130,7 +130,7 @@ mobilectl --version
 
 Expected output:
 ```
-MobileCtl v0.2.0
+MobileCtl v0.3.2
 Kotlin Multiplatform CLI for Mobile DevOps
 ```
 

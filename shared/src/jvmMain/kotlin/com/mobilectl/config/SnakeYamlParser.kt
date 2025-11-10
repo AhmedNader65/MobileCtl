@@ -246,11 +246,8 @@ class SnakeYamlConfigParser : ConfigParser {
         val flavorGroups = convertToFlavorGroups(data["flavor_groups"] as? Map<String, Any?> ?: data["flavorGroups"] as? Map<String, Any?>)
         val defaultGroup = data["default_group"] as? String ?: data["defaultGroup"] as? String
 
-        // If neither android nor ios, return empty config
-        if (android == null && ios == null) {
-            return DeployConfig()
-        }
-
+        // Always return deploy config with flavor groups and default group
+        // even if android/ios sections are missing
         return DeployConfig(
             enabled = data["enabled"] as? Boolean ?: false,
             android = android,

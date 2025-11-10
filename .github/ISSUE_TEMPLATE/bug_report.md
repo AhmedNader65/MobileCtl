@@ -21,7 +21,7 @@ labels: bug
 
 ## Environment
 - **OS:** macOS / Linux / Windows
-- **mobilectl Version:** (e.g., 0.1.0)
+- **mobilectl Version:** (e.g., 0.3.2)
 - **Kotlin Version:** 
 - **Java Version:** 
 

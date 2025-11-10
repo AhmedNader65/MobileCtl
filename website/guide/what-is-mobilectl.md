@@ -168,7 +168,7 @@ cd ../project-b && mobilectl deploy staging
 
 ## Current Status
 
-### ✅ Production Ready (v0.2.0)
+### ✅ Production Ready (v0.3.2)
 
 - Version bumping with multi-file support
 - Changelog generation with backups

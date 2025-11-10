@@ -320,7 +320,7 @@ This will:
 7. Send notifications (if configured)
 8. Generate deployment reports
 
-## What's New in v0.2.0
+## What's New in v0.3.2
 
 ::: tip Production Ready Changelog
 - ✅ Generate changelog from conventional commits

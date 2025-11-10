@@ -24,7 +24,7 @@ export default defineConfig({
       { text: 'Config', link: '/reference/configuration' },
       { text: 'Examples', link: '/examples/' },
       {
-        text: 'v0.2.0',
+        text: 'v0.3.2',
         items: [
           { text: 'Changelog', link: '/changelog' },
           { text: 'Contributing', link: '/contributing' }
