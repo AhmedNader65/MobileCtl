@@ -34,3 +34,4 @@ plugins {
 
 include(":cli")
 include(":shared")
+include(":desktop")
