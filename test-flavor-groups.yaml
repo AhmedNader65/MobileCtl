@@ -1,0 +1,50 @@
+version: "1.0.0"
+
+build:
+  android:
+    enabled: true
+    default_flavor: free
+    flavors:
+      - free
+      - paid
+      - premium
+      - enterprise
+      - qa
+      - staging
+
+deploy:
+  enabled: true
+  default_group: production
+
+  flavor_groups:
+    production:
+      name: Production
+      description: Production builds for release
+      flavors:
+        - free
+        - paid
+        - premium
+        - enterprise
+
+    testing:
+      name: Testing
+      description: Testing and staging builds
+      flavors:
+        - qa
+        - staging
+
+  android:
+    enabled: true
+    artifact_path: build/outputs/apk/release/app-release.apk
+
+    firebase:
+      enabled: true
+      service_account: credentials/firebase-service-account.json
+      test_groups:
+        - qa-team
+        - beta-testers
+
+    play_console:
+      enabled: false
+      service_account: credentials/play-console.json
+      package_name: com.example.app

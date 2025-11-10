@@ -243,6 +243,8 @@ class SnakeYamlConfigParser : ConfigParser {
 
         val android = convertToAndroidDeployConfig(data["android"] as? Map<String, Any?>)
         val ios = convertToIosDeployConfig(data["ios"] as? Map<String, Any?>)
+        val flavorGroups = convertToFlavorGroups(data["flavor_groups"] as? Map<String, Any?> ?: data["flavorGroups"] as? Map<String, Any?>)
+        val defaultGroup = data["default_group"] as? String ?: data["defaultGroup"] as? String
 
         // If neither android nor ios, return empty config
         if (android == null && ios == null) {
@@ -250,9 +252,35 @@ class SnakeYamlConfigParser : ConfigParser {
         }
 
         return DeployConfig(
+            enabled = data["enabled"] as? Boolean ?: false,
             android = android,
-            ios = ios
+            ios = ios,
+            flavorGroups = flavorGroups,
+            defaultGroup = defaultGroup
         )
+    }
+
+    /**
+     * Convert raw YAML data to FlavorGroups map
+     */
+    private fun convertToFlavorGroups(data: Map<String, Any?>?): Map<String, com.mobilectl.model.deploy.FlavorGroup> {
+        if (data == null) return emptyMap()
+
+        return data.mapNotNull { (groupName, groupData) ->
+            if (groupData is Map<*, *>) {
+                @Suppress("UNCHECKED_CAST")
+                val groupMap = groupData as Map<String, Any?>
+
+                val flavorGroup = com.mobilectl.model.deploy.FlavorGroup(
+                    name = groupMap["name"] as? String ?: groupName,
+                    description = groupMap["description"] as? String ?: "",
+                    flavors = (groupMap["flavors"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
+                )
+                groupName to flavorGroup
+            } else {
+                null
+            }
+        }.toMap()
     }
 
     /**
@@ -558,8 +586,29 @@ class SnakeYamlConfigParser : ConfigParser {
         map["changelog"] = changelogMap
 
         // Deploy config
-        if (config.deploy.android != null || config.deploy.ios != null) {
+        if (config.deploy.android != null || config.deploy.ios != null || config.deploy.flavorGroups.isNotEmpty()) {
             val deployMap = mutableMapOf<String, Any?>()
+
+            // Add enabled flag
+            if (config.deploy.enabled) {
+                deployMap["enabled"] = config.deploy.enabled
+            }
+
+            // Add defaultGroup
+            config.deploy.defaultGroup?.let {
+                deployMap["default_group"] = it
+            }
+
+            // Add flavorGroups
+            if (config.deploy.flavorGroups.isNotEmpty()) {
+                deployMap["flavor_groups"] = config.deploy.flavorGroups.mapValues { (_, group) ->
+                    mapOf(
+                        "name" to group.name.takeIf { it.isNotEmpty() },
+                        "description" to group.description.takeIf { it.isNotEmpty() },
+                        "flavors" to group.flavors.takeIf { it.isNotEmpty() }
+                    ).filterValues { it != null }
+                }
+            }
 
             config.deploy.android?.let { android ->
                 val androidMap = mutableMapOf<String, Any?>()

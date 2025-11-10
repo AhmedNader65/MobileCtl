@@ -418,7 +418,8 @@ deploy:
   android:
     firebase:
       serviceAccount: credentials/firebase-dev.json
-      testGroups: [developers]
+      testGroups:
+        - developers
 ```
 
 #### Staging
@@ -429,7 +430,9 @@ deploy:
   android:
     firebase:
       serviceAccount: credentials/firebase-staging.json
-      testGroups: [qa-team, stakeholders]
+      testGroups:
+        - qa-team
+        - stakeholders
 ```
 
 #### Production
@@ -440,7 +443,8 @@ deploy:
   android:
     firebase:
       serviceAccount: credentials/firebase-prod.json
-      testGroups: [beta-testers]
+      testGroups:
+        - beta-testers
     playConsole:
       enabled: true
 ```
@@ -477,9 +481,12 @@ deploy:
 deploy:
   flavorGroups:
     production:
-      flavors: [productionRelease]
+      flavors:
+        - productionRelease
     testing:
-      flavors: [staging, development]
+      flavors:
+        - staging
+        - development
 ```
 
 ```bash

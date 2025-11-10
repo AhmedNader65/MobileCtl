@@ -90,7 +90,7 @@ After setup, deploy with a single command:
 
 ```bash
 # Complete release: version bump + changelog + build + deploy
-mobilectl deploy --bump-version patch --changelog --all-variants
+mobilectl deploy --bump-version patch --changelog --all-flavors
 ```
 
 That's it. **One command** to go from code to production.
@@ -107,7 +107,8 @@ Or use commands separately for more control:
 mobilectl version bump patch     # Manual version control
 mobilectl changelog generate     # Separate changelog step
 mobilectl build all             # Build only
-mobilectl deploy --all-variants  # Deploy existing builds
+mobilectl deploy --all-flavors  # Deploy all flavors
+mobilectl deploy -G production  # Deploy specific group
 ```
 
 ## Key Features
@@ -236,7 +237,10 @@ app:
 build:
   android:
     enabled: true
-    flavors: [free, paid, premium]
+    flavors: 
+        - free
+        - paid
+        - premium
     defaultFlavor: free
     defaultType: release
   ios:
@@ -246,12 +250,31 @@ build:
 
 deploy:
   enabled: true
+  default_group: production  # Default group when no CLI flag provided
+
+  flavor_groups:
+    production:
+      name: Production
+      description: Production builds for release
+      flavors:
+        - free
+        - paid
+        - premium
+
+    testing:
+      name: Testing
+      description: Internal testing builds
+      flavors:
+        - qa
+        - staging
 
   android:
     firebase:
       enabled: true
       service_account: credentials/firebase-adminsdk.json
-      testGroups: [qa-team, beta-testers]
+      testGroups:
+        - qa-team
+        - beta-testers
 
     play_console:
       enabled: true
@@ -262,10 +285,6 @@ deploy:
       enabled: true
       api_key_path: credentials/app-store-connect-api-key.json
       team_id: ABC123DEF
-
-  flavor_groups:
-    production:
-      flavors: [free, paid, premium]
 
 version:
   enabled: true
@@ -281,14 +300,20 @@ changelog:
 ### Deploy Everything with One Command
 
 ```bash
-# One command to rule them all
-mobilectl deploy --all-variants --bump-version patch --changelog
+# Deploy production group (uses default_group from config)
+mobilectl deploy --bump-version patch --changelog
+
+# Or deploy all flavors explicitly
+mobilectl deploy --all-flavors --bump-version patch --changelog
+
+# Or deploy specific group
+mobilectl deploy --flavor-group testing
 ```
 
 This will:
 1. Bump the version to `1.0.1`
 2. Generate a changelog from commits
-3. Build all flavors (free, paid, premium)
+3. Build selected flavors (production, testing, or all)
 4. Sign all artifacts
 5. Upload to Firebase & TestFlight
 6. Update Play Console
@@ -355,7 +380,7 @@ EOF
 
 # Start building and deploying
 ./mobilectl.sh build
-./mobilectl.sh deploy --all-variants
+./mobilectl.sh deploy --all-flavors
 ```
 
 [Read the full guide →](/guide/getting-started)

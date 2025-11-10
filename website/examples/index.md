@@ -59,7 +59,9 @@ app:
 build:
   android:
     enabled: true
-    flavors: [production, staging]
+    flavors:
+      - production
+      - staging
   ios:
     enabled: true
     scheme: MyApp
@@ -87,7 +89,8 @@ deploy:
 mobilectl deploy \
   --bump-version minor \
   --changelog \
-  --all-flavors
+  --all-flavors \
+  --confirm
 ```
 
 ## Example Categories
@@ -201,7 +204,9 @@ deploy:
   android:
     firebase:
       enabled: true
-      testGroups: [qa, beta]
+      testGroups:
+        - qa
+        - beta
     playConsole:
       enabled: true
       packageName: com.example.android
@@ -333,13 +338,17 @@ app:
 
 build:
   android:
-    flavors: [production, staging]
+    flavors:
+      - production
+      - staging
 
 deploy:
   android:
     firebase:
       enabled: true
-      testGroups: [team, qa]
+      testGroups:
+        - team
+        - qa
 
 notify:
   slack:
@@ -364,11 +373,20 @@ build:
       - developmentDebug
 
 deploy:
+  default_group: production
+
   flavorGroups:
     production:
-      flavors: [productionRelease]
+      name: Production
+      description: Production releases
+      flavors:
+        - productionRelease
     internal:
-      flavors: [stagingRelease, developmentDebug]
+      name: Internal
+      description: Internal testing builds
+      flavors:
+        - stagingRelease
+        - developmentDebug
 
   android:
     firebase:
@@ -486,35 +504,64 @@ mobilectl deploy firebase --verbose
 
 ```yaml
 deploy:
+  default_group: production
+
   flavorGroups:
     # Production variants
-    prod-all:
+    production:
+      name: Production
+      description: All production builds
       flavors:
         - productionRelease
         - productionDebug
 
     # Staging variants
-    staging-all:
+    staging:
+      name: Staging
+      description: Staging environment builds
       flavors:
         - stagingRelease
         - stagingDebug
 
     # Development variants
-    dev-all:
+    development:
+      name: Development
+      description: Development environment builds
       flavors:
         - developmentRelease
         - developmentDebug
 
-    # Testing group
+    # Testing group (mixed environments)
     testing:
+      name: Testing
+      description: Combined testing builds
       flavors:
         - stagingRelease
         - developmentDebug
+
+    # Release-only builds
+    releases-only:
+      name: Release Builds
+      description: Only release variants
+      flavors:
+        - productionRelease
+        - stagingRelease
+        - developmentRelease
 ```
 
 ```bash
-mobilectl deploy --flavor-group prod-all
+# Deploy using default group
+mobilectl deploy
+
+# Deploy production group
+mobilectl deploy --flavor-group production
+mobilectl deploy -G production
+
+# Deploy testing group
 mobilectl deploy --flavor-group testing
+
+# Deploy releases only
+mobilectl deploy --flavor-group releases-only
 ```
 
 ### Custom Release Notes

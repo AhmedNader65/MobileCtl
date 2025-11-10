@@ -362,4 +362,113 @@ class ConfigParserTest {
                 assertTrue(outputYaml.contains("version"))
                 assertTrue(outputYaml.contains("1.0.0"))
         }
+
+        /**
+         * Test flavor groups and defaultGroup parsing
+         */
+        @Test
+        fun testFlavorGroupsAndDefaultGroup() {
+                val yaml = """
+            version: "1.0"
+
+            build:
+              android:
+                enabled: true
+                flavors:
+                  - free
+                  - paid
+                  - premium
+                  - enterprise
+                  - qa
+                  - staging
+
+            deploy:
+              enabled: true
+              default_group: production
+
+              flavor_groups:
+                production:
+                  name: Production
+                  description: Production builds for release
+                  flavors:
+                    - free
+                    - paid
+                    - premium
+                    - enterprise
+
+                testing:
+                  name: Testing
+                  description: Testing and staging builds
+                  flavors:
+                    - qa
+                    - staging
+
+              android:
+                enabled: true
+                firebase:
+                  enabled: true
+                  service_account: credentials/firebase.json
+        """.trimIndent()
+
+                val parser = SnakeYamlConfigParser()
+                val config = parser.parse(yaml)
+
+                // Verify deploy config
+                assertNotNull(config.deploy)
+                assertTrue(config.deploy.enabled)
+                assertEquals("production", config.deploy.defaultGroup)
+
+                // Verify flavor groups
+                assertEquals(2, config.deploy.flavorGroups.size)
+
+                // Verify production group
+                val productionGroup = config.deploy.flavorGroups["production"]
+                assertNotNull(productionGroup)
+                assertEquals("Production", productionGroup?.name)
+                assertEquals("Production builds for release", productionGroup?.description)
+                assertEquals(4, productionGroup?.flavors?.size)
+                assertTrue(productionGroup?.flavors?.contains("free") == true)
+                assertTrue(productionGroup?.flavors?.contains("paid") == true)
+                assertTrue(productionGroup?.flavors?.contains("premium") == true)
+                assertTrue(productionGroup?.flavors?.contains("enterprise") == true)
+
+                // Verify testing group
+                val testingGroup = config.deploy.flavorGroups["testing"]
+                assertNotNull(testingGroup)
+                assertEquals("Testing", testingGroup?.name)
+                assertEquals("Testing and staging builds", testingGroup?.description)
+                assertEquals(2, testingGroup?.flavors?.size)
+                assertTrue(testingGroup?.flavors?.contains("qa") == true)
+                assertTrue(testingGroup?.flavors?.contains("staging") == true)
+        }
+
+        /**
+         * Test flavor groups with camelCase keys (alternative syntax)
+         */
+        @Test
+        fun testFlavorGroupsCamelCase() {
+                val yaml = """
+            version: "1.0"
+
+            deploy:
+              enabled: true
+              defaultGroup: production
+
+              flavorGroups:
+                production:
+                  name: Production
+                  flavors:
+                    - free
+                    - paid
+        """.trimIndent()
+
+                val parser = SnakeYamlConfigParser()
+                val config = parser.parse(yaml)
+
+                // Verify it works with camelCase too
+                assertEquals("production", config.deploy.defaultGroup)
+                assertEquals(1, config.deploy.flavorGroups.size)
+                assertNotNull(config.deploy.flavorGroups["production"])
+                assertEquals(2, config.deploy.flavorGroups["production"]?.flavors?.size)
+        }
 }
