@@ -6,9 +6,10 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mobilectl.changelog.ChangelogOrchestrator
+import com.mobilectl.changelog.GitCommitParser
+import com.mobilectl.changelog.JGitCommitParser
+import com.mobilectl.changelog.JvmChangelogWriter
 import com.mobilectl.changelog.createChangelogStateManager
-import com.mobilectl.changelog.createGitCommitParser
-import com.mobilectl.changelog.createJvmChangelogWriter
 import com.mobilectl.config.ConfigLoader
 import com.mobilectl.detector.createProjectDetector
 import com.mobilectl.util.JvmFileUtil
@@ -95,8 +96,8 @@ class ChangelogEditorViewModel : ViewModel() {
                     }
 
                     val orchestrator = ChangelogOrchestrator(
-                        parser = createGitCommitParser(),
-                        writer = createJvmChangelogWriter(),
+                        parser = JGitCommitParser(),
+                        writer = JvmChangelogWriter(),
                         stateManager = createChangelogStateManager(),
                         config = changelogConfig
                     )

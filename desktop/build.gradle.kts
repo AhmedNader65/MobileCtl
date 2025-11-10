@@ -5,7 +5,7 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
-    alias(libs.plugins.kotlinSerialization)
+    kotlin("plugin.serialization") version "2.0.0"
 }
 
 group = "com.mobilectl"
@@ -37,7 +37,7 @@ kotlin {
                 implementation(libs.androidx.lifecycle.viewmodelCompose)
                 implementation(libs.androidx.lifecycle.runtimeCompose)
                 implementation(libs.kotlinx.coroutinesSwing)
-                implementation(libs.kotlinx.serializationJson)
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
             }
         }
     }

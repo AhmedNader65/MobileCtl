@@ -255,7 +255,7 @@ private fun QuickDeploySection(
                                     },
                                     leadingIcon = {
                                         Icon(
-                                            if (platform == Platform.ANDROID) Icons.Default.Android else Icons.Default.Apple,
+                                            if (platform == Platform.ANDROID) Icons.Default.Android else Icons.Default.TabletMac,
                                             null
                                         )
                                     }

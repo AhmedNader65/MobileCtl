@@ -1,9 +1,9 @@
 package com.mobilectl.desktop.data
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 import java.io.File
 import java.nio.file.Paths
 
