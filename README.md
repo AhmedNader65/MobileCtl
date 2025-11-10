@@ -3,7 +3,7 @@
 Modern DevOps automation for Android apps. Build, version, and deploy with a single command.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.3.1-green.svg)](https://github.com/AhmedNader65/MobileCtl/releases)
+[![Version](https://img.shields.io/badge/version-0.3.2-green.svg)](https://github.com/AhmedNader65/MobileCtl/releases)
 
 ## ✨ Features
 
