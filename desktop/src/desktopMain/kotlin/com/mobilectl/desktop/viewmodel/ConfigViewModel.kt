@@ -8,7 +8,9 @@ import androidx.lifecycle.viewModelScope
 import com.mobilectl.config.Config
 import com.mobilectl.config.ConfigLoader
 import com.mobilectl.detector.ProjectDetector
+import com.mobilectl.detector.createProjectDetector
 import com.mobilectl.util.FileUtil
+import com.mobilectl.util.JvmFileUtil
 import kotlinx.coroutines.launch
 
 data class FirebaseConfigState(
@@ -50,8 +52,8 @@ class ConfigViewModel : ViewModel() {
         private set
 
     private val configLoader = ConfigLoader(
-        fileUtil = FileUtil(),
-        projectDetector = ProjectDetector()
+        fileUtil = JvmFileUtil(),
+        projectDetector = createProjectDetector()
     )
 
     init {

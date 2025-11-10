@@ -44,7 +44,7 @@ fun App(
                 actions = {
                     IconButton(
                         onClick = onToggleTheme,
-                        modifier = Modifier.tooltipAnchor()
+                        modifier = Modifier
                     ) {
                         Icon(
                             imageVector = if (isDarkTheme) Icons.Default.LightMode else Icons.Default.DarkMode,

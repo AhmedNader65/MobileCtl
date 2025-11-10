@@ -9,9 +9,11 @@ import com.mobilectl.config.ConfigLoader
 import com.mobilectl.config.createConfigParser
 import com.mobilectl.detector.ProjectDetector
 import com.mobilectl.deploy.createDeployOrchestrator
+import com.mobilectl.detector.createProjectDetector
 import com.mobilectl.model.Platform
 import com.mobilectl.model.deploy.DeployResult
 import com.mobilectl.util.FileUtil
+import com.mobilectl.util.JvmFileUtil
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -49,8 +51,8 @@ class DashboardViewModel : ViewModel() {
         private set
 
     private val configLoader = ConfigLoader(
-        fileUtil = FileUtil(),
-        projectDetector = ProjectDetector()
+        fileUtil = JvmFileUtil(),
+        projectDetector = createProjectDetector()
     )
 
     private val deployOrchestrator = createDeployOrchestrator()
