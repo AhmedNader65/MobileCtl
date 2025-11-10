@@ -12,11 +12,13 @@ import androidx.compose.ui.unit.dp
 import com.mobilectl.desktop.ui.screens.DashboardScreen
 import com.mobilectl.desktop.ui.screens.ConfigScreen
 import com.mobilectl.desktop.ui.screens.DeployProgressScreen
+import com.mobilectl.desktop.ui.screens.ArtifactPreviewScreen
 
 enum class Screen {
     DASHBOARD,
     DEPLOY_PROGRESS,
-    CONFIG
+    CONFIG,
+    ARTIFACT_PREVIEW
 }
 
 data class DeploymentParams(
@@ -63,6 +65,10 @@ fun App(
                         Icon(Icons.Default.Dashboard, "Dashboard")
                     }
 
+                    IconButton(onClick = { currentScreen = Screen.ARTIFACT_PREVIEW }) {
+                        Icon(Icons.Default.FolderOpen, "Artifacts")
+                    }
+
                     IconButton(onClick = { currentScreen = Screen.CONFIG }) {
                         Icon(Icons.Default.Settings, "Settings")
                     }
@@ -97,6 +103,9 @@ fun App(
                         platform = deploymentParams.platform,
                         flavor = deploymentParams.flavor,
                         track = deploymentParams.track
+                    )
+                    Screen.ARTIFACT_PREVIEW -> ArtifactPreviewScreen(
+                        onNavigateBack = { currentScreen = Screen.DASHBOARD }
                     )
                     Screen.CONFIG -> ConfigScreen(
                         onNavigateBack = { currentScreen = Screen.DASHBOARD }
