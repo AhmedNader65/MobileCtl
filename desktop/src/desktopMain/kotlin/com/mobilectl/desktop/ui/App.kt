@@ -161,6 +161,11 @@ fun App(
                 label = "screen_transition"
             ) { screen ->
                 when (screen) {
+                    Screen.SETUP -> {
+                        // Setup screen is handled separately before Scaffold
+                        // This case should never be reached
+                        Box(modifier = Modifier.fillMaxSize())
+                    }
                     Screen.DASHBOARD -> DashboardScreen(
                         onNavigateToProgress = { platform, flavor, track ->
                             deploymentParams = DeploymentParams(platform, flavor, track)
