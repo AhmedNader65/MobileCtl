@@ -1,14 +1,9 @@
 package com.mobilectl.desktop.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.*
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -17,15 +12,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.mobilectl.desktop.ui.components.*
-import com.mobilectl.desktop.ui.theme.GradientColors
+import com.mobilectl.desktop.ui.theme.AccentColors
 import com.mobilectl.desktop.viewmodel.DashboardViewModel
 import com.mobilectl.desktop.viewmodel.DeployHistoryItem
 import com.mobilectl.model.Platform
@@ -41,511 +34,290 @@ fun DashboardScreen(
     val formState = viewModel.formState
     val statsState = viewModel.statsState
 
-    LazyColumn(
+    Row(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(32.dp),
-        verticalArrangement = Arrangement.spacedBy(32.dp)
+            .padding(24.dp),
+        horizontalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        // Hero Section
-        item {
-            HeroSection()
-        }
-
-        // Stats Cards Row
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(20.dp)
-            ) {
-                StatCard(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Default.CloudUpload,
-                    title = "Total Deploys",
-                    value = statsState.totalDeploys.toString(),
-                    subtitle = "All time",
-                    gradientColors = GradientColors.primaryGradient
-                )
-                StatCard(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Default.CheckCircle,
-                    title = "Success Rate",
-                    value = "${String.format("%.1f", statsState.successRate)}%",
-                    subtitle = "Last 30 days",
-                    gradientColors = GradientColors.successGradient
-                )
-                StatCard(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Default.Timer,
-                    title = "Avg Time",
-                    value = formatDuration(statsState.avgTime),
-                    subtitle = "Per deployment",
-                    gradientColors = GradientColors.accentGradient
-                )
-            }
-        }
-
-        // Quick Deploy Section
-        item {
-            QuickDeploySection(
-                formState = formState,
-                onPlatformChange = viewModel::updatePlatform,
-                onFlavorChange = viewModel::updateFlavor,
-                onTrackChange = viewModel::updateTrack,
-                onDeploy = { viewModel.startDeploy(onNavigateToProgress) }
-            )
-        }
-
-        // Recent Activity Header
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Recent Activity",
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onBackground
-                )
-                TextButton(onClick = { /* View all */ }) {
-                    Text("View All")
-                    Spacer(Modifier.width(4.dp))
-                    Icon(Icons.Default.ArrowForward, null, modifier = Modifier.size(16.dp))
-                }
-            }
-        }
-
-        // Recent Deployments
-        items(statsState.recentDeploys) { deploy ->
-            PremiumDeployHistoryCard(deploy)
-        }
-
-        // Empty State
-        if (statsState.recentDeploys.isEmpty()) {
-            item {
-                EmptyStateCard()
-            }
-        }
-    }
-}
-
-@Composable
-private fun HeroSection() {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = "Dashboard",
-                style = MaterialTheme.typography.displaySmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground
-            )
-            PremiumBadge(
-                text = "v1.0.0",
-                gradientColors = GradientColors.primaryGradient
-            )
-        }
-        Text(
-            text = "Manage your mobile deployments with ease",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun QuickDeploySection(
-    formState: com.mobilectl.desktop.viewmodel.DeployFormState,
-    onPlatformChange: (Platform) -> Unit,
-    onFlavorChange: (String) -> Unit,
-    onTrackChange: (String) -> Unit,
-    onDeploy: () -> Unit
-) {
-    PremiumCard(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = 4.dp
-    ) {
+        // Left side - Deploy form + Stats
         Column(
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+            modifier = Modifier.width(340.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // Header
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Brush.linearGradient(GradientColors.primaryGradient)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Default.Rocket,
-                        null,
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                Column {
-                    Text(
-                        text = "Quick Deploy",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Deploy to multiple platforms instantly",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+            // Quick Deploy Section
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SectionHeader("Deploy")
 
-            Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
-
-            // Form Fields
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Platform Selector
-                var platformExpanded by remember { mutableStateOf(false) }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Platform",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    ExposedDropdownMenuBox(
-                        expanded = platformExpanded,
-                        onExpandedChange = { platformExpanded = it }
-                    ) {
-                        OutlinedTextField(
-                            value = formState.platform.name.lowercase().replaceFirstChar { it.uppercase() },
-                            onValueChange = {},
-                            readOnly = true,
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = platformExpanded) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-                            )
-                        )
-                        ExposedDropdownMenu(
-                            expanded = platformExpanded,
-                            onDismissRequest = { platformExpanded = false }
+                MinimalCard {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        // Platform selector
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Platform.entries.forEach { platform ->
-                                DropdownMenuItem(
-                                    text = { Text(platform.name.lowercase().replaceFirstChar { it.uppercase() }) },
-                                    onClick = {
-                                        onPlatformChange(platform)
-                                        platformExpanded = false
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            if (platform == Platform.ANDROID) Icons.Default.Android else Icons.Default.TabletMac,
-                                            null
-                                        )
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Flavor Selector
-                if (formState.availableFlavors.isNotEmpty()) {
-                    var flavorExpanded by remember { mutableStateOf(false) }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Flavor",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                        ExposedDropdownMenuBox(
-                            expanded = flavorExpanded,
-                            onExpandedChange = { flavorExpanded = it }
-                        ) {
-                            OutlinedTextField(
-                                value = formState.flavor,
-                                onValueChange = {},
-                                readOnly = true,
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = flavorExpanded) },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .menuAnchor(),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
-                                )
+                            FilterChip(
+                                selected = formState.platform == Platform.ANDROID,
+                                onClick = { viewModel.updatePlatform(Platform.ANDROID) },
+                                label = { Text("Android", fontSize = 13.sp) },
+                                modifier = Modifier.weight(1f)
                             )
-                            ExposedDropdownMenu(
-                                expanded = flavorExpanded,
-                                onDismissRequest = { flavorExpanded = false }
-                            ) {
-                                formState.availableFlavors.forEach { flavor ->
-                                    DropdownMenuItem(
-                                        text = { Text(flavor) },
-                                        onClick = {
-                                            onFlavorChange(flavor)
-                                            flavorExpanded = false
-                                        }
-                                    )
-                                }
-                            }
+                            FilterChip(
+                                selected = formState.platform == Platform.IOS,
+                                onClick = { viewModel.updatePlatform(Platform.IOS) },
+                                label = { Text("iOS", fontSize = 13.sp) },
+                                modifier = Modifier.weight(1f)
+                            )
                         }
-                    }
-                }
 
-                // Track Selector
-                var trackExpanded by remember { mutableStateOf(false) }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Track",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    ExposedDropdownMenuBox(
-                        expanded = trackExpanded,
-                        onExpandedChange = { trackExpanded = it }
-                    ) {
-                        OutlinedTextField(
+                        // Flavor dropdown
+                        CompactDropdown(
+                            value = formState.flavor,
+                            options = formState.availableFlavors,
+                            onValueChange = { viewModel.updateFlavor(it) },
+                            label = "Flavor",
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        // Track dropdown
+                        CompactDropdown(
                             value = formState.track,
-                            onValueChange = {},
-                            readOnly = true,
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = trackExpanded) },
+                            options = formState.availableTracks,
+                            onValueChange = { viewModel.updateTrack(it) },
+                            label = "Track",
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        // Deploy button
+                        Button(
+                            onClick = {
+                                viewModel.startDeploy { platform, flavor, track ->
+                                    onNavigateToProgress(platform, flavor, track)
+                                }
+                            },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .menuAnchor(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                                .height(36.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
                             )
-                        )
-                        ExposedDropdownMenu(
-                            expanded = trackExpanded,
-                            onDismissRequest = { trackExpanded = false }
                         ) {
-                            formState.availableTracks.forEach { track ->
-                                DropdownMenuItem(
-                                    text = { Text(track.replaceFirstChar { it.uppercase() }) },
-                                    onClick = {
-                                        onTrackChange(track)
-                                        trackExpanded = false
-                                    }
-                                )
+                            Icon(
+                                Icons.Default.RocketLaunch,
+                                null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("Deploy", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        }
+                    }
+                }
+            }
+
+            // Stats Section
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SectionHeader("Statistics")
+
+                MinimalCard {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        StatItem(
+                            label = "Total",
+                            value = statsState.totalDeploys.toString()
+                        )
+                        StatItem(
+                            label = "Success Rate",
+                            value = "${String.format("%.0f", statsState.successRate)}%",
+                            valueColor = AccentColors.success
+                        )
+                        StatItem(
+                            label = "Avg Time",
+                            value = formatDuration(statsState.avgTime)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Right side - Recent Deployments
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            SectionHeader(
+                title = "Recent Deployments",
+                action = {
+                    TextButton(
+                        onClick = { /* Refresh */ },
+                        modifier = Modifier.height(28.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Refresh,
+                            null,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text("Refresh", fontSize = 12.sp)
+                    }
+                }
+            )
+
+            if (statsState.recentDeploys.isEmpty()) {
+                // Empty state
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            Icons.Outlined.History,
+                            null,
+                            modifier = Modifier.size(32.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        )
+                        Text(
+                            "No deployments yet",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            } else {
+                // Deployment table
+                MinimalCard(modifier = Modifier.fillMaxWidth()) {
+                    Column {
+                        // Table header
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp, horizontal = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "Platform",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.weight(0.15f)
+                            )
+                            Text(
+                                "Flavor",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.weight(0.15f)
+                            )
+                            Text(
+                                "Track",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.weight(0.15f)
+                            )
+                            Text(
+                                "Duration",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.weight(0.15f)
+                            )
+                            Text(
+                                "Time",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.weight(0.25f)
+                            )
+                            Text(
+                                "Status",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.weight(0.15f)
+                            )
+                        }
+
+                        HorizontalDivider(
+                            thickness = 1.dp,
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
+
+                        // Table rows
+                        LazyColumn {
+                            items(statsState.recentDeploys) { deploy ->
+                                DeploymentRow(deploy)
                             }
                         }
                     }
                 }
             }
-
-            // Deploy Button
-            GradientButton(
-                onClick = onDeploy,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !formState.isDeploying,
-                gradientColors = GradientColors.primaryGradient
-            ) {
-                if (formState.isDeploying) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                        color = Color.White
-                    )
-                    Spacer(Modifier.width(12.dp))
-                }
-                Icon(Icons.Default.Rocket, null, tint = Color.White)
-                Spacer(Modifier.width(12.dp))
-                Text(
-                    if (formState.isDeploying) "Deploying..." else "Deploy Now",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = Color.White,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
         }
     }
 }
 
 @Composable
-private fun PremiumDeployHistoryCard(deploy: DeployHistoryItem) {
-    var isHovered by remember { mutableStateOf(false) }
+private fun DeploymentRow(deploy: DeployHistoryItem) {
+    val dateFormat = remember { SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()) }
 
-    PremiumCard(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = if (isHovered) 4.dp else 0.dp
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
-            ) {
-                // Status Icon with gradient background
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (deploy.success)
-                                Brush.linearGradient(GradientColors.successGradient)
-                            else
-                                Brush.linearGradient(GradientColors.warningGradient)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = if (deploy.success) Icons.Default.CheckCircle else Icons.Default.Error,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "${deploy.platform} - ${deploy.flavor}",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        PremiumBadge(
-                            text = deploy.track,
-                            backgroundColor = MaterialTheme.colorScheme.secondaryContainer
-                        )
-                    }
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.AccessTime,
-                                null,
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = formatTimestamp(deploy.timestamp),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.Timer,
-                                null,
-                                modifier = Modifier.size(14.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = formatDuration(deploy.duration),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
-
-            IconButton(onClick = { /* View details */ }) {
-                Icon(Icons.Default.ChevronRight, "View details")
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmptyStateCard() {
-    PremiumCard(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(40.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Outlined.CloudUpload,
-                    null,
-                    modifier = Modifier.size(40.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            Text(
-                text = "No deployments yet",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = "Start your first deployment to see activity here",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+    TableRow {
+        Text(
+            deploy.platform,
+            style = MaterialTheme.typography.bodySmall,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 13.sp,
+            modifier = Modifier.weight(0.15f)
+        )
+        Text(
+            deploy.flavor,
+            style = MaterialTheme.typography.bodySmall,
+            fontSize = 13.sp,
+            modifier = Modifier.weight(0.15f)
+        )
+        Text(
+            deploy.track,
+            style = MaterialTheme.typography.bodySmall,
+            fontSize = 13.sp,
+            modifier = Modifier.weight(0.15f)
+        )
+        Text(
+            formatDuration(deploy.duration),
+            style = MaterialTheme.typography.bodySmall,
+            fontSize = 13.sp,
+            modifier = Modifier.weight(0.15f)
+        )
+        Text(
+            dateFormat.format(Date(deploy.timestamp)),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 12.sp,
+            modifier = Modifier.weight(0.25f)
+        )
+        StatusBadge(
+            text = if (deploy.success) "Success" else "Failed",
+            color = if (deploy.success) AccentColors.success else AccentColors.warning,
+            modifier = Modifier.weight(0.15f)
+        )
     }
 }
 
 private fun formatDuration(millis: Long): String {
     val seconds = millis / 1000
     val minutes = seconds / 60
-    val remainingSeconds = seconds % 60
-    return if (minutes > 0) {
-        "${minutes}m ${remainingSeconds}s"
-    } else {
-        "${remainingSeconds}s"
-    }
-}
-
-private fun formatTimestamp(timestamp: Long): String {
-    val now = System.currentTimeMillis()
-    val diff = now - timestamp
-
-    return when {
-        diff < 60000 -> "Just now"
-        diff < 3600000 -> "${diff / 60000}m ago"
-        diff < 86400000 -> "${diff / 3600000}h ago"
-        else -> {
-            val sdf = SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault())
-            sdf.format(Date(timestamp))
-        }
-    }
+    val secs = seconds % 60
+    return if (minutes > 0) "${minutes}m ${secs}s" else "${secs}s"
 }
