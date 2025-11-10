@@ -30,8 +30,19 @@ import com.mobilectl.desktop.viewmodel.StepStatus
 @Composable
 fun DeployProgressScreen(
     onNavigateBack: () -> Unit,
-    viewModel: DeployProgressViewModel = viewModel { DeployProgressViewModel() }
+    platform: String = "Android",
+    flavor: String = "production",
+    track: String = "internal",
+    useRealDeployment: Boolean = false // Set to true when ready to test real deployments
 ) {
+    val viewModel: DeployProgressViewModel = viewModel {
+        DeployProgressViewModel(
+            platform = platform,
+            flavor = flavor,
+            track = track,
+            useRealDeployment = useRealDeployment
+        )
+    }
     val state = viewModel.state
 
     // Auto-navigate back when complete

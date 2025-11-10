@@ -34,7 +34,7 @@ import java.util.*
 
 @Composable
 fun DashboardScreen(
-    onNavigateToProgress: () -> Unit,
+    onNavigateToProgress: (platform: String, flavor: String, track: String) -> Unit,
     onNavigateToConfig: () -> Unit,
     viewModel: DashboardViewModel = viewModel { DashboardViewModel() }
 ) {

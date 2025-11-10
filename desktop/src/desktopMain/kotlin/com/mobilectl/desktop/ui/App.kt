@@ -19,6 +19,12 @@ enum class Screen {
     CONFIG
 }
 
+data class DeploymentParams(
+    val platform: String = "Android",
+    val flavor: String = "production",
+    val track: String = "internal"
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun App(
@@ -26,6 +32,7 @@ fun App(
     onToggleTheme: () -> Unit = {}
 ) {
     var currentScreen by remember { mutableStateOf(Screen.DASHBOARD) }
+    var deploymentParams by remember { mutableStateOf(DeploymentParams()) }
 
     Scaffold(
         topBar = {
@@ -79,11 +86,17 @@ fun App(
             ) { screen ->
                 when (screen) {
                     Screen.DASHBOARD -> DashboardScreen(
-                        onNavigateToProgress = { currentScreen = Screen.DEPLOY_PROGRESS },
+                        onNavigateToProgress = { platform, flavor, track ->
+                            deploymentParams = DeploymentParams(platform, flavor, track)
+                            currentScreen = Screen.DEPLOY_PROGRESS
+                        },
                         onNavigateToConfig = { currentScreen = Screen.CONFIG }
                     )
                     Screen.DEPLOY_PROGRESS -> DeployProgressScreen(
-                        onNavigateBack = { currentScreen = Screen.DASHBOARD }
+                        onNavigateBack = { currentScreen = Screen.DASHBOARD },
+                        platform = deploymentParams.platform,
+                        flavor = deploymentParams.flavor,
+                        track = deploymentParams.track
                     )
                     Screen.CONFIG -> ConfigScreen(
                         onNavigateBack = { currentScreen = Screen.DASHBOARD }

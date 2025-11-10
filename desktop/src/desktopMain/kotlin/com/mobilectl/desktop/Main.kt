@@ -2,20 +2,53 @@ package com.mobilectl.desktop
 
 import androidx.compose.runtime.*
 import androidx.compose.ui.input.key.*
-import androidx.compose.ui.window.*
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.*
+import com.mobilectl.desktop.data.AppPreferences
+import com.mobilectl.desktop.data.PreferencesManager
+import com.mobilectl.desktop.data.WindowPreferences
 import com.mobilectl.desktop.ui.App
 import com.mobilectl.desktop.ui.theme.MobileCtlTheme
 import java.awt.Dimension
 
 fun main() = application {
-    var isDarkTheme by remember { mutableStateOf(false) }
+    // Load preferences
+    val savedPrefs = remember { PreferencesManager.load() }
+    var isDarkTheme by remember { mutableStateOf(savedPrefs.isDarkTheme) }
 
+    // Create window state from saved preferences
     val windowState = rememberWindowState(
-        width = 1200.dp,
-        height = 800.dp,
-        placement = WindowPlacement.Floating
+        width = savedPrefs.window.width.dp,
+        height = savedPrefs.window.height.dp,
+        position = if (savedPrefs.window.x >= 0 && savedPrefs.window.y >= 0) {
+            WindowPosition(savedPrefs.window.x.dp, savedPrefs.window.y.dp)
+        } else {
+            WindowPosition.Aligned(Alignment.Center)
+        },
+        placement = if (savedPrefs.window.isMaximized) {
+            WindowPlacement.Maximized
+        } else {
+            WindowPlacement.Floating
+        }
     )
+
+    // Save preferences on close
+    DisposableEffect(Unit) {
+        onDispose {
+            val currentPrefs = AppPreferences(
+                window = WindowPreferences(
+                    width = windowState.size.width.value.toInt(),
+                    height = windowState.size.height.value.toInt(),
+                    x = windowState.position.x.value.toInt(),
+                    y = windowState.position.y.value.toInt(),
+                    isMaximized = windowState.placement == WindowPlacement.Maximized
+                ),
+                isDarkTheme = isDarkTheme
+            )
+            PreferencesManager.save(currentPrefs)
+        }
+    }
 
     Window(
         onCloseRequest = ::exitApplication,

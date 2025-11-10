@@ -86,48 +86,15 @@ class DashboardViewModel : ViewModel() {
     }
 
     private fun loadDeploymentHistory() {
-        // Placeholder - in real implementation, this would read from a persistence layer
-        val mockHistory = listOf(
-            DeployHistoryItem(
-                platform = "Android",
-                flavor = "production",
-                track = "internal",
-                success = true,
-                timestamp = System.currentTimeMillis() - 3600000,
-                duration = 120000
-            ),
-            DeployHistoryItem(
-                platform = "Android",
-                flavor = "staging",
-                track = "alpha",
-                success = true,
-                timestamp = System.currentTimeMillis() - 7200000,
-                duration = 135000
-            ),
-            DeployHistoryItem(
-                platform = "iOS",
-                flavor = "production",
-                track = "testflight",
-                success = false,
-                timestamp = System.currentTimeMillis() - 10800000,
-                duration = 45000
-            )
-        )
-
-        val successCount = mockHistory.count { it.success }
-        val successRate = if (mockHistory.isNotEmpty()) {
-            (successCount.toDouble() / mockHistory.size) * 100
-        } else 0.0
-
-        val avgDuration = if (mockHistory.isNotEmpty()) {
-            mockHistory.map { it.duration }.average().toLong()
-        } else 0L
+        // Load from database
+        val recentDeploys = com.mobilectl.desktop.data.DeploymentDatabase.getRecentDeployments(10)
+        val stats = com.mobilectl.desktop.data.DeploymentDatabase.getStats()
 
         statsState = StatsState(
-            totalDeploys = mockHistory.size,
-            successRate = successRate,
-            avgTime = avgDuration,
-            recentDeploys = mockHistory
+            totalDeploys = stats.totalDeploys,
+            successRate = stats.successRate,
+            avgTime = stats.avgTime,
+            recentDeploys = recentDeploys
         )
     }
 
@@ -143,14 +110,19 @@ class DashboardViewModel : ViewModel() {
         formState = formState.copy(track = track)
     }
 
-    fun startDeploy(onNavigateToProgress: () -> Unit) {
+    fun startDeploy(onNavigateToProgress: (platform: String, flavor: String, track: String) -> Unit) {
         formState = formState.copy(isDeploying = true, error = null)
-        onNavigateToProgress()
+
+        // Pass deployment parameters to progress screen
+        onNavigateToProgress(
+            formState.platform.name,
+            formState.flavor,
+            formState.track
+        )
 
         viewModelScope.launch {
             try {
-                // This will be implemented with the progress screen
-                // For now, just simulate a deployment
+                // Deployment is now handled by the progress screen
                 kotlinx.coroutines.delay(100)
                 formState = formState.copy(isDeploying = false)
             } catch (e: Exception) {
